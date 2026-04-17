@@ -8,5 +8,16 @@ e o seu sistema deverá interpolar (apresentar uma curva polinomial paramétrica
 > A forma de resolução é através da montagem de um sistema para cada dimensão x e y, na forma monomial, 
 por QR (ver livro de G. Farin: Curve and Surface for CAGD, quarta edição, cap. 6). 
 
-> Extra: sistemas lineares resolvidos por ambos os
+> Extras
+> - parametric 3D curve
+>     - adds z(t)
+> - grid curves
+>     - side by side curves
+>     - "surface lines"
+> - simple surface
+>     - curves product
+>     - interpolation between grid curves
+> - surface
+>    -bilinear surfaces
+> - sistemas lineares resolvidos por ambos os
 métodos iterativos estudados em aula.

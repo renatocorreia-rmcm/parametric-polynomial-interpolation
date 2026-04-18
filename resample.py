@@ -1,25 +1,16 @@
 import numpy as np
 import numpy.typing as npt
 
-relative_sample_rate = 6
-
-
 def resample(
         interpolation_points: npt.NDArray[float],
         interpolation_function,
-        samples_amount: int = None
+        relative_sample_rate: int = 2*6
 ) -> npt.NDArray[float]:
     """
     resample parametric 2D points using the given interpolation
-
-    :param interpolation_points:
-    :param interpolation_function:
-    :param samples_amount:
-    :return:
     """
 
-    if samples_amount is None:
-        samples_amount = relative_sample_rate*len(interpolation_points)
+    samples_amount = relative_sample_rate*len(interpolation_points)
 
     parameters = interpolation_points[:, -1]
 

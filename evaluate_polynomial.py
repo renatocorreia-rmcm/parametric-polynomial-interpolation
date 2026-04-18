@@ -8,12 +8,12 @@ def my_pow(x: float, e: int):
     return r
 
 
-def evaluate_polynomial(coefficients: npt.NDArray[float], x: float):
+def evaluate_polynomial(coefficients: npt.NDArray[float], t: float):
 
     result = 0
 
     for deg, coef in enumerate(coefficients):
         if coef != 0:
-            result += coef * my_pow(x, deg)
+            result += coef * my_pow(t, deg)
 
     return result

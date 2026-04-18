@@ -7,7 +7,8 @@ def aitken_interpolation(
         t: int,
         interpolation_indices: tuple[int, int] = None
 ) -> npt.NDArray[float]:
-    # todo: optimize recurssion redundance -> return array of polynomial coefficients "get_aitken_coefficients"
+    # todo: optimize recurssion redundance -> backtracking
+    # todo: decompose pair-wise interpolation, so can visualize algorithm operation
     """
 
     :return: F(t) for F being the interpolated polynomial of points interpolation_points

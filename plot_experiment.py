@@ -1,0 +1,55 @@
+import numpy as np
+import numpy.typing as npt
+
+import matplotlib.pyplot as plt
+
+
+def plot_experiment(  # todo: parametized color as speed, color as t, (color as higher order derivatives ? )
+        interpolation_points: npt.NDArray[float],  # [(t, x, y)]
+        resampled_points: npt.NDArray[float],  # [(t, x, y)]
+        experiment_name: str = "test"
+):
+    fig, ax = plt.subplots()
+    ax.set_facecolor('black')
+    ax.set_aspect('equal', adjustable='datalim')
+
+    if len(resampled_points) > 1:
+        def build_segments_and_lengths(points: np.ndarray):
+            # Pairwise segments
+            p0 = points[:-1]
+            p1 = points[1:]
+            segments = np.stack([p0, p1], axis=1)
+
+            # Euclidean lengths
+            lengths = np.linalg.norm(p1[:, 1:] - p0[:, 1:], axis=1)
+
+            return segments, lengths
+
+        segments, lengths = build_segments_and_lengths(resampled_points)
+
+        # PLOT
+
+        vmin, vmax = lengths.min(), lengths.max()
+        if vmin == vmax:
+            vmax = vmin + 1e-12  # avoid zero range
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+        cmap = plt.get_cmap('plasma')
+        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+        plt.colorbar(sm, ax=ax, label="speed")
+
+        for segment, length in zip(segments, lengths):
+            color = cmap(norm(length))  # speed = ds/dt  # currently is using only ds, but ok since all dt are equal
+            ax.plot(
+                segment[:, 1],
+                segment[:, 2],
+                color=color,
+                linewidth=1.5
+            )
+
+    ax.scatter(interpolation_points[:, 1], interpolation_points[:, 2], color='white', zorder=2, marker='.')
+    ax.scatter(interpolation_points[0, 1], interpolation_points[0, 2], color='white', zorder=2, marker='o')  # make start marker bigger
+
+    plt.savefig(f"output/{experiment_name}.png", dpi=300)
+
+    plt.close(fig)

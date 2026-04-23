@@ -2,27 +2,14 @@ import numpy as np
 import numpy.typing as npt
 
 
-points: npt.NDArray[float] = np.array([
-    (0.0, 0.0),
-    (1.0, 1.0),
-    (3.0, 2.0),
-    (1.0, 3.0),
-    (2.7, 3.5),
-    (-3.0, 4.0),
-])
-
-
 def get_vandermonde_coefficients(
-        interpolation_points: npt.NDArray[float],
-        t: int = None
+        interpolation_points: npt.NDArray[float],  # (t, y)
 ) -> npt.NDArray[float]:
     """
-    get array of points in format (y, t)
-
-    p = T * a
+    y = T * a
     """
 
-    p = interpolation_points[:, 0]
+    t, y = interpolation_points.T
 
     polynomial_degree = len(interpolation_points) - 1
     amount_of_coefficients = polynomial_degree + 1
@@ -30,8 +17,8 @@ def get_vandermonde_coefficients(
     T: npt.NDArray[float] = np.zeros(shape=(amount_of_coefficients, amount_of_coefficients), dtype=float)
 
     # setting T by collumn
-    for column in range(amount_of_coefficients):
-        T[:, column] = np.pow(interpolation_points[:, -1], column)
+    for index_column in range(amount_of_coefficients):
+        T[:, index_column] = t ** index_column
 
     # setting T by line
     # exponents = np.arange(amount_of_coefficients)
@@ -39,8 +26,6 @@ def get_vandermonde_coefficients(
     # for line in range(amount_of_coefficients):
     #     T[line] = interpolation_points[line, 0] ** exponents
 
-    T_inv = np.linalg.inv(T)
+    coefficients = np.linalg.solve(T, y)  # todo: implement QR decomposition + inversion
 
-    a = T_inv @ p
-
-    return a
+    return coefficients

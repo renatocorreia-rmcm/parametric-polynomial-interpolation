@@ -1,20 +1,29 @@
 import numpy as np
 import numpy.typing as npt
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
 def plot_experiment(  # todo: parametized color as speed, color as t, (color as higher order derivatives ? )
-        interpolation_points: npt.NDArray[float],  # [(t, x, y)]
+        original_points: npt.NDArray[float],  # [(t, x, y)]
         resampled_points: npt.NDArray[float],  # [(t, x, y)]
         experiment_name: str = "test"
 ):
+    """
+    plot interpolated curve over scattered original points
+
+    """
     fig, ax = plt.subplots()
     ax.set_facecolor('black')
     ax.set_aspect('equal', adjustable='datalim')
 
     if len(resampled_points) > 1:
         def build_segments_and_lengths(points: np.ndarray):
+            """
+            decompose curve in 2 point curves
+            allow multicolored curves
+            """
             # Pairwise segments
             p0 = points[:-1]
             p1 = points[1:]
@@ -44,12 +53,14 @@ def plot_experiment(  # todo: parametized color as speed, color as t, (color as 
                 segment[:, 1],
                 segment[:, 2],
                 color=color,
-                linewidth=1.5
+                linewidth=1.5,
+                solid_capstyle='round'
             )
 
-    ax.scatter(interpolation_points[:, 1], interpolation_points[:, 2], color='white', zorder=2, marker='.')
-    ax.scatter(interpolation_points[0, 1], interpolation_points[0, 2], color='white', zorder=2, marker='o')  # make start marker bigger
+    # scatter original points over interpolated curve
+    ax.scatter(original_points[1:, 1], original_points[1:, 2], color='white', zorder=2, marker='.')
+    ax.scatter(original_points[0, 1], original_points[0, 2], color='white', zorder=2, marker='o')  # make start marker bigger
 
-    plt.savefig(f"output/{experiment_name}.png", dpi=300)
+    plt.savefig(f"output/{experiment_name}.svg", dpi=300)
 
     plt.close(fig)

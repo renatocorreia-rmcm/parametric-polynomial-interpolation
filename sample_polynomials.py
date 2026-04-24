@@ -9,7 +9,7 @@ def sample_polynomials(
         relative_sample_rate: int = 2 * 6
 ) -> npt.NDArray[float]:
     """
-    resample parametric 2D points using the given interpolation
+    sample multiple polynomials at the same parameters
     """
 
     # set samples

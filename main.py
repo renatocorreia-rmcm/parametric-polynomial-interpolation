@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 
 from get_vandermond_coefficients import get_vandermonde_coefficients
-from resample import sample_polynomials
+from sample_polynomials import sample_polynomials
 from plot_experiment import plot_experiment
 
 
@@ -29,7 +29,7 @@ def main(
     # PLOT
 
     plot_experiment(
-        interpolation_points=interpolation_points,
+        original_points=interpolation_points,
         resampled_points=resampled_points,
         experiment_name=experiment_name
     )

@@ -24,4 +24,4 @@ def evaluate_polynomial(coefficients: npt.NDArray[float], parameters_samples: np
 
 
 # todo: cant parallelize horners method, but can parallelize [horner(t) for t in [...]]
-#   (make horner a task) and create a top level for applying it over several points
+#   (make horner(polynomial) a task) and create a top level for applying it over several points

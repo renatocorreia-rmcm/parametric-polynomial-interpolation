@@ -3,7 +3,7 @@ import numpy.typing as npt
 
 
 def get_vandermonde_coefficients(
-        interpolation_points: npt.NDArray[float],  # (t, y)
+        interpolation_points: npt.NDArray[float],  # [(t, y)]
 ) -> npt.NDArray[float]:
     """
     y = T * a

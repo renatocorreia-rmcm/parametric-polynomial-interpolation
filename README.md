@@ -2,7 +2,7 @@
 
 <div style="display: flex; justify-content: space-around; align-items: center;">
 
-<img src="output/vandermonde_interpolation.png">
+<img src="output/vandermonde_interpolation.svg">
 
 </div>
 

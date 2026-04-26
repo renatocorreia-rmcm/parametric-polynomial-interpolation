@@ -1,11 +1,15 @@
 import numpy as np
 import numpy.typing as npt
 
+import householder
 
-def get_vandermonde_coefficients(
+
+def coefficients(
         interpolation_points: npt.NDArray[float],  # [(t, y)]
 ) -> npt.NDArray[float]:
     """
+    return the coefficients of the polynomial that interpolates the given points, in increasing order of degree
+
     y = T * a
     """
 
@@ -26,6 +30,8 @@ def get_vandermonde_coefficients(
     # for line in range(amount_of_coefficients):
     #     T[line] = interpolation_points[line, 0] ** exponents
 
-    coefficients = np.linalg.solve(T, y)  # todo: implement QR decomposition + inversion
+    T_inv = householder.inversion(T)
+
+    coefficients = T_inv @ y
 
     return coefficients

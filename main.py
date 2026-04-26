@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from get_vandermond_coefficients import get_vandermonde_coefficients
+import vandermond
 from sample_polynomials import sample_polynomials
 from plot_experiment import plot_experiment
 
@@ -12,10 +12,10 @@ def main(
 ):
     # GET POLYNOMIALS
 
-    x_polynomial = get_vandermonde_coefficients(
+    x_polynomial = vandermond.coefficients(
         interpolation_points=interpolation_points[:, [0, 1]]
     )
-    y_polynomial = get_vandermonde_coefficients(
+    y_polynomial = vandermond.coefficients(
         interpolation_points=interpolation_points[:, [0, 2]]
     )
 

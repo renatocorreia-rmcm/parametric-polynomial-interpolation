@@ -25,13 +25,11 @@ def sample_polynomials(
 
     # compute samples
 
-    values_samples: npt.NDArray[float] = np.array([
-        evaluate_polynomial(
-            parameters_samples=parameters_samples,
-            coefficients=polynomial
-        )
-        for polynomial in polynomials
-    ])
+    values_samples = np.polynomial.polynomial.polyval(
+        x=parameters_samples,
+        c=polynomials.T[::-1, :]  # transpose + reverse degree axis
+    )
+
 
     # combine samples into points
 

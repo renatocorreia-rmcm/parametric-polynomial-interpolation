@@ -5,7 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
-def plot_experiment(  # todo: parametized color as speed, color as t, (color as higher order derivatives ? )
+def plot_experiment(
         original_points: npt.NDArray[float],  # [(t, x, y)]
         resampled_points: npt.NDArray[float],  # [(t, x, y)]
         experiment_name: str = "test"
@@ -14,6 +14,14 @@ def plot_experiment(  # todo: parametized color as speed, color as t, (color as 
     plot interpolated curve over scattered original points
 
     """
+    # todo: parametized color as
+    #  - speed,
+    #  - t,
+    #  - higher order derivatives ?
+
+    # todo: allow multiple curves
+    #   single color colormap for each
+
     fig, ax = plt.subplots()
     ax.set_facecolor('black')
     ax.set_aspect('equal', adjustable='datalim')

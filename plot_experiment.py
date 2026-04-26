@@ -5,6 +5,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
+# todo: INTERFACE EM ANYWIDGET ?
+
+
 def plot_experiment(
         original_points: npt.NDArray[float],  # [(t, x, y)]
         resampled_points: npt.NDArray[float],  # [(t, x, y)]

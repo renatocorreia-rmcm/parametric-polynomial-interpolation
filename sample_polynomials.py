@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.typing as npt
-from evaluate_polynomial import evaluate_polynomial
 
 
 def sample_polynomials(

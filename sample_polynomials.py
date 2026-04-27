@@ -26,7 +26,7 @@ def sample_polynomials(
 
     values_samples = np.polynomial.polynomial.polyval(
         x=parameters_samples,
-        c=polynomials.T[::-1, :]  # transpose + reverse degree axis
+        c=polynomials.T  # transpose + reverse degree axis
     )
 
 

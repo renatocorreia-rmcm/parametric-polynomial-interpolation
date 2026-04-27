@@ -69,8 +69,12 @@ def plot_experiment(
             )
 
     # scatter original points over interpolated curve
-    ax.scatter(original_points[1:, 1], original_points[1:, 2], color='white', zorder=2, marker='.')
+    ax.scatter(original_points[1:-1, 1], original_points[1:-1, 2], color='white', zorder=2, marker='.')
+
     ax.scatter(original_points[0, 1], original_points[0, 2], color='white', zorder=2, marker='o')  # make start marker bigger
+    ax.scatter(original_points[0, 1], original_points[0, 2], color='black', zorder=2, marker='.')  # make start marker bigger
+
+    ax.scatter(original_points[-1, 1], original_points[-1, 2], color='white', zorder=2, marker='x')  # make start marker bigger
 
     plt.savefig(f"output/{experiment_name}.svg", dpi=300)
 

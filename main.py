@@ -5,9 +5,11 @@ import vandermond
 from sample_polynomials import sample_polynomials
 from plot_experiment import plot_experiment
 
+from parametize import parametize
+
 
 def main(
-        interpolation_points: npt.NDArray[float],
+        interpolation_points: npt.NDArray,
         experiment_name: str = None
 ):
     # GET POLYNOMIALS
@@ -37,15 +39,18 @@ def main(
 
 if __name__ == "__main__":
 
-    points: npt.NDArray[float] = np.array([  # todo: test cancelation error: include resampled points here (aligned points)
-            (0.0, 0.0, 0.0),
-            (1.0, 2.0, 1.0),
-            (2.0, 0.0, 3.0),
-            (3.0, 0.0, 1.0),
-            (3.5, -1.0, 2.7),
-            (4.0, -2.0, 3.0),
-            (5.0, -1.0, -6.0)
+    points: npt.NDArray = np.array([  # todo: test cancelation error: include resampled points here (aligned points)
+            [0.0, 0.0, 0.0],
+            [1.0, 2.0, 1.0],
+            [2.0, 0.0, 3.0],
+            [3.0, 0.0, 1.0],
+            [3.5, -1.0, 2.7],
+            [4.0, -2.0, 3.0],
+            [5.0, -1.0, -6.0]
     ])
+
+    unparametized_points = points[:, [0,1]]
+    print(parametize(unparametized_points, method="uniform")) 
 
     main(
         interpolation_points=points,

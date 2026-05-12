@@ -29,7 +29,6 @@ def sample_polynomials(
         c=polynomials.T  # transpose + reverse degree axis
     )
 
-
     # combine samples into points
 
     resampled_points: npt.NDArray[float] = np.column_stack(

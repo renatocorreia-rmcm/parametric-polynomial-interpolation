@@ -23,22 +23,6 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# todo: set exponent slider to take 0.05 steps
-
-# todo: change "ACTIVE CURVE SETTINGS" to f"CURVE: {c.name}" and update when active curve changes
-
-# todo: add extrapolation parameter slider  #  tells how much beyond the endpoints to sample
-
-# todo: set minimum axis range to 2x2, so dont get "stuck" in a small window when have few points
-
-# todo: make each curve have a monotonic colormap like Purples, Oranges, Blues, etc instead of always being mpl default
-#   then allow to hide each curve and change its colormap (as desmos)
-#   also allow to hide the control polygon separately from the curve
-#   also highlight in CURVES section wich one is the active one
-#   these can be done by togles in each curve in Curves section
-
-# todo: add button to save curve screenshot (just recycle old "plot_experiment()")
-
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
 
 import numpy as np
@@ -71,6 +55,12 @@ DANGER = "#e05c5c"
 
 COLOR_MODES = ["parameter", "speed"]
 
+# Per-curve monotonic colormaps (cycle in order of curve creation)
+CURVE_COLORMAPS = [
+    "Blues_r", "Oranges_r", "Purples_r", "Greens_r",
+    "Reds_r", "YlOrBr_r", "PuBu_r", "RdPu_r",
+]
+
 POINT_RADIUS = 8  # px hit-test radius
 MIN_POINTS_FIT = 2  # minimum points to attempt interpolation
 
@@ -85,12 +75,15 @@ class Curve:
         Curve._counter += 1
         self.name: str = f"Curve {Curve._counter}"
         self.color: str = CURVE_COLORS[(Curve._counter - 1) % len(CURVE_COLORS)]
+        self.colormap: str = CURVE_COLORMAPS[(Curve._counter - 1) % len(CURVE_COLORMAPS)]
         # points stored as list of [t, x, y]
         self.points: list[list[float]] = []
         self.param_exponent: float = 0
         self.color_mode: str = "parameter"
         self.samples: int = 15
+        self.extrapolation: float = 0.0
         self.visible: bool = True
+        self.show_polygon: bool = True
 
     # ── derived ──────────────────────────────────────────────────────────────
     def get_array(self) -> npt.NDArray:
@@ -123,13 +116,17 @@ class Curve:
                 warnings.simplefilter("ignore")
                 cx = vandermond.coefficients(arr[:, [0, 1]])
                 cy = vandermond.coefficients(arr[:, [0, 2]])
-            segments = len(arr) - 1
             rate = self.samples if not draft else min(4, self.samples)
-            resampled = sp_mod.sample_polynomials(
-                parameters=ts,
-                polynomials=np.array([cx, cy]),
-                relative_sample_rate=max(1, rate),
+            t_span = ts[-1] - ts[0]
+            ext = self.extrapolation * t_span
+            t_start = ts[0] - ext
+            t_end   = ts[-1] + ext
+            n_samples = max(2, int(rate * len(ts)))
+            t_samp = np.linspace(t_start, t_end, n_samples)
+            xy = np.polynomial.polynomial.polyval(
+                x=t_samp, c=np.array([cx, cy]).T
             )
+            resampled = np.column_stack([t_samp, xy.T])
             return resampled, True
         except Exception:
             return None, False
@@ -195,7 +192,7 @@ class InteractiveVisualizer:
 
         # ── sidebar: tall GridSpec inside outer[1] ───────────────────────────
         sb = gridspec.GridSpecFromSubplotSpec(
-            32, 1,
+            49, 1,
             subplot_spec=outer[1],
             hspace=0.4,
         )
@@ -211,16 +208,16 @@ class InteractiveVisualizer:
                          va="center", fontsize=7, color=FG_DIM,
                          transform=ax_mode_lbl.transAxes)
 
-        ax_mode = self.fig.add_subplot(sb[row:row + 2])
-        row += 2
+        ax_mode = self.fig.add_subplot(sb[row:row + 3])
+        row += 3
         self.radio_mode = RadioButtons(
             ax_mode, ("add", "move", "delete"),
             activecolor=ACCENT,
+            radio_props={"s": [36]},
+            label_props={"fontsize": [9, 9, 9], "color": [FG_TEXT]*3},
         )
         ax_mode.set_facecolor(BG_PANEL)
-        for lbl in self.radio_mode.labels:
-            lbl.set_color(FG_TEXT)
-            lbl.set_fontsize(9)
+        ax_mode.axis("off")
         self.radio_mode.on_clicked(self._on_mode_changed)
 
         # ── section: Curves list ──────────────────────────────────────────────
@@ -231,20 +228,50 @@ class InteractiveVisualizer:
                        va="center", fontsize=7, color=FG_DIM,
                        transform=ax_cl_lbl.transAxes)
 
-        # We support up to 5 curve slots in the sidebar; overflow still works,
-        # only the bottom controls won't update — acceptable for a demo.
+        # Each curve gets 2 sidebar rows:
+        #   Row A — one select button spanning the full width
+        #   Row B — three pre-built toggle buttons side-by-side
+        # All axes are built once here; _update_sidebar_curve_buttons only
+        # mutates labels/colours, never creates new axes.
         self._curve_btn_axes = []
-        self._curve_btns = []
-        MAX_CURVE_BTNS = 5
-        for _ in range(MAX_CURVE_BTNS):
-            ax = self.fig.add_subplot(sb[row])
+        self._curve_btns     = []
+        self._curve_vis_btns = []
+        self._curve_pol_btns = []
+        self._curve_cmp_btns = []
+        MAX_CURVE_SLOTS = 5
+        for slot in range(MAX_CURVE_SLOTS):
+            # Row A — full-width select button
+            ax_a = self.fig.add_subplot(sb[row])
             row += 1
-            ax.set_facecolor(BG_PANEL)
-            b = Button(ax, "", color=BG_PANEL, hovercolor=BG_WIDGET)
-            b.label.set_fontsize(8)
-            b.label.set_color(FG_TEXT)
-            self._curve_btn_axes.append(ax)
-            self._curve_btns.append(b)
+            ax_a.set_facecolor(BG_PANEL)
+            b_sel = Button(ax_a, "", color=BG_PANEL, hovercolor=BG_WIDGET)
+            b_sel.label.set_fontsize(8)
+            b_sel.label.set_color(FG_TEXT)
+            self._curve_btn_axes.append(ax_a)
+            self._curve_btns.append(b_sel)
+            # Row B — 3 toggle buttons using a nested 1x3 GridSpec
+            sub_gs = gridspec.GridSpecFromSubplotSpec(
+                1, 3, subplot_spec=sb[row], wspace=0.04
+            )
+            row += 1
+            ax_vis = self.fig.add_subplot(sub_gs[0, 0])
+            ax_pol = self.fig.add_subplot(sub_gs[0, 1])
+            ax_cmp = self.fig.add_subplot(sub_gs[0, 2])
+            for ax_t in (ax_vis, ax_pol, ax_cmp):
+                ax_t.set_facecolor(BG_PANEL)
+                ax_t.set_visible(False)
+            b_vis = Button(ax_vis, "", color=BG_PANEL, hovercolor=BG_WIDGET)
+            b_pol = Button(ax_pol, "", color=BG_PANEL, hovercolor=BG_WIDGET)
+            b_cmp = Button(ax_cmp, "", color=BG_PANEL, hovercolor=BG_WIDGET)
+            for b in (b_vis, b_pol, b_cmp):
+                b.label.set_fontsize(7)
+                b.label.set_color(FG_DIM)
+            b_vis.on_clicked(lambda e, idx=slot: self._toggle_curve_visible(idx))
+            b_pol.on_clicked(lambda e, idx=slot: self._toggle_curve_polygon(idx))
+            b_cmp.on_clicked(lambda e, idx=slot: self._cycle_curve_colormap(idx))
+            self._curve_vis_btns.append(b_vis)
+            self._curve_pol_btns.append(b_pol)
+            self._curve_cmp_btns.append(b_cmp)
 
         ax_add = self.fig.add_subplot(sb[row])
         row += 1
@@ -259,6 +286,13 @@ class InteractiveVisualizer:
         self.btn_del_curve.label.set_fontsize(8)
         self.btn_del_curve.label.set_color(DANGER)
         self.btn_del_curve.on_clicked(lambda e: self._delete_active_curve())
+
+        ax_save = self.fig.add_subplot(sb[row])
+        row += 1
+        self.btn_save = Button(ax_save, "Save Image", color=BG_WIDGET, hovercolor=BG_PANEL)
+        self.btn_save.label.set_fontsize(8)
+        self.btn_save.label.set_color(ACCENT)
+        self.btn_save.on_clicked(lambda e: self._save_image())
 
         # ── section: Active curve settings ───────────────────────────────────
         ax_as_lbl = self.fig.add_subplot(sb[row])
@@ -283,7 +317,7 @@ class InteractiveVisualizer:
         row += 1
         self.slider_exp = Slider(
             ax_exp_sl, "", 0.0, 2.0,
-            valinit=0.5, valstep=0.01,
+            valinit=0.5, valstep=0.05,
             color=ACCENT,
         )
         ax_exp_sl.set_facecolor(BG_WIDGET)
@@ -318,16 +352,17 @@ class InteractiveVisualizer:
                        va="center", fontsize=7, color=FG_DIM,
                        transform=ax_cm_lbl.transAxes)
 
-        ax_cm = self.fig.add_subplot(sb[row:row + 2])
-        row += 2
+        ax_cm = self.fig.add_subplot(sb[row:row + 3])
+        row += 3
+        n_cm = len(COLOR_MODES)
         self.radio_colormode = RadioButtons(
             ax_cm, tuple(COLOR_MODES),
             activecolor=ACCENT,
+            radio_props={"s": [36]},
+            label_props={"fontsize": [8]*n_cm, "color": [FG_TEXT]*n_cm},
         )
         ax_cm.set_facecolor(BG_PANEL)
-        for lbl in self.radio_colormode.labels:
-            lbl.set_color(FG_TEXT)
-            lbl.set_fontsize(8)
+        ax_cm.axis("off")
         self.radio_colormode.on_clicked(self._on_colormode_changed)
 
         # Samples slider + textbox
@@ -357,6 +392,35 @@ class InteractiveVisualizer:
         self.tb_samples.label.set_color(FG_DIM)
         self.tb_samples.text_disp.set_color(FG_TEXT)
         self.tb_samples.on_submit(self._on_samples_text)
+
+        # Extrapolation slider + textbox
+        ax_ext_lbl = self.fig.add_subplot(sb[row])
+        row += 1
+        ax_ext_lbl.axis("off")
+        ax_ext_lbl.text(0.04, 0.5, "Extrapolation (fraction of t-span per side)",
+                        va="center", fontsize=7, color=FG_DIM,
+                        transform=ax_ext_lbl.transAxes)
+
+        ax_ext_sl = self.fig.add_subplot(sb[row])
+        row += 1
+        self.slider_ext = Slider(
+            ax_ext_sl, "", 0.0, 1.0,
+            valinit=0.0, valstep=0.05,
+            color=ACCENT,
+        )
+        ax_ext_sl.set_facecolor(BG_WIDGET)
+        self.slider_ext.label.set_color(FG_DIM)
+        self.slider_ext.valtext.set_color(FG_TEXT)
+        self.slider_ext.on_changed(self._on_ext_slider)
+
+        ax_ext_tb = self.fig.add_subplot(sb[row])
+        row += 1
+        self.tb_ext = TextBox(ax_ext_tb, "", initial="0.00",
+                              color=BG_WIDGET, hovercolor=BG_PANEL)
+        self.tb_ext.label.set_color(FG_DIM)
+        self.tb_ext.text_disp.set_color(FG_TEXT)
+        self.tb_ext.text_disp.set_fontsize(8)
+        self.tb_ext.on_submit(self._on_ext_text)
 
         # ── section: Selected point editor ────────────────────────────────────
         ax_pe_lbl = self.fig.add_subplot(sb[row])
@@ -455,20 +519,65 @@ class InteractiveVisualizer:
             self._sync_sidebar_to_active()
             self._redraw()
 
+    def _toggle_curve_visible(self, idx: int):
+        if 0 <= idx < len(self.curves):
+            self.curves[idx].visible = not self.curves[idx].visible
+            self._update_sidebar_curve_buttons()
+            self._redraw()
+
+    def _toggle_curve_polygon(self, idx: int):
+        if 0 <= idx < len(self.curves):
+            self.curves[idx].show_polygon = not self.curves[idx].show_polygon
+            self._update_sidebar_curve_buttons()
+            self._redraw()
+
+    def _cycle_curve_colormap(self, idx: int):
+        if 0 <= idx < len(self.curves):
+            c = self.curves[idx]
+            cur = CURVE_COLORMAPS.index(c.colormap) if c.colormap in CURVE_COLORMAPS else 0
+            c.colormap = CURVE_COLORMAPS[(cur + 1) % len(CURVE_COLORMAPS)]
+            self._update_sidebar_curve_buttons()
+            self._redraw()
+
     # ── sidebar curve buttons ─────────────────────────────────────────────────
     def _update_sidebar_curve_buttons(self):
-        for i, (ax, btn) in enumerate(zip(self._curve_btn_axes, self._curve_btns)):
+        for i in range(len(self._curve_btns)):
+            ax_a  = self._curve_btn_axes[i]
+            btn   = self._curve_btns[i]
+            b_vis = self._curve_vis_btns[i]
+            b_pol = self._curve_pol_btns[i]
+            b_cmp = self._curve_cmp_btns[i]
+
             if i < len(self.curves):
                 c = self.curves[i]
-                label = f"● {c.name}"
-                btn.label.set_text(label)
-                btn.label.set_color(c.color if i == self.active_idx else FG_TEXT)
-                ax.set_facecolor(BG_WIDGET if i == self.active_idx else BG_PANEL)
-                ax.set_visible(True)
-                # rebind — capture i in closure
+                is_active = (i == self.active_idx)
+                bg = BG_WIDGET if is_active else BG_PANEL
+
+                # ── Row A: select button ──────────────────────────────────
+                btn.label.set_text(f"● {c.name}")
+                btn.label.set_color(c.color)
+                btn.ax.set_facecolor(bg)
+                btn.color = bg          # keep Button internal state in sync
+                ax_a.set_visible(True)
                 btn.on_clicked(lambda e, idx=i: self._set_active_curve(idx))
+
+                # ── Row B: toggle buttons (pre-built, just update) ────────
+                cmap_short = c.colormap.replace('_r', '')
+                b_vis.label.set_text("show" if c.visible     else "hide")
+                b_pol.label.set_text("poly" if c.show_polygon else "poly off")
+                b_cmp.label.set_text(cmap_short[:7])
+                b_vis.label.set_color(c.color if c.visible     else FG_DIM)
+                b_pol.label.set_color(c.color if c.show_polygon else FG_DIM)
+                b_cmp.label.set_color(c.color)
+                for b in (b_vis, b_pol, b_cmp):
+                    b.ax.set_facecolor(bg)
+                    b.color = bg
+                    b.ax.set_visible(True)
             else:
-                ax.set_visible(False)
+                ax_a.set_visible(False)
+                for b in (b_vis, b_pol, b_cmp):
+                    b.ax.set_visible(False)
+
         self.fig.canvas.draw_idle()
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -480,6 +589,9 @@ class InteractiveVisualizer:
             return
         c = self.curves[self.active_idx]
 
+        # active curve label
+        self._active_settings_label.set_text(f"CURVE: {c.name}")
+
         # param exponent
         self.slider_exp.set_val(np.clip(c.param_exponent, 0.0, 2.0))
         self.tb_exp.set_val(f"{c.param_exponent:.2f}")
@@ -490,6 +602,10 @@ class InteractiveVisualizer:
         # samples
         self.slider_samples.set_val(c.samples)
         self.tb_samples.set_val(str(c.samples))
+
+        # extrapolation
+        self.slider_ext.set_val(np.clip(c.extrapolation, 0.0, 1.0))
+        self.tb_ext.set_val(f"{c.extrapolation:.2f}")
 
         # point editor
         self._sync_point_editor()
@@ -584,6 +700,24 @@ class InteractiveVisualizer:
             self._redraw()
         except ValueError:
             pass
+
+    def _on_ext_slider(self, val):
+        c = self._active_curve()
+        if c:
+            c.extrapolation = round(float(val), 4)
+            self.tb_ext.set_val(f"{c.extrapolation:.2f}")
+            self._redraw()
+
+    def _on_ext_text(self, text):
+        try:
+            val = max(0.0, float(text))
+        except ValueError:
+            return
+        c = self._active_curve()
+        if c:
+            c.extrapolation = val
+        self.slider_ext.set_val(np.clip(val, 0.0, 1.0))
+        self._redraw()
 
     # ── point coord callbacks ─────────────────────────────────────────────────
     def _set_point_coord(self, axis: str, val: float):
@@ -790,7 +924,7 @@ class InteractiveVisualizer:
                 self._draw_curve_colored(ax, resampled, c, alpha=1.0 if is_active else 0.45)
 
             # ── control polygon ───────────────────────────────────────────────
-            if len(arr) >= 2:
+            if len(arr) >= 2 and c.show_polygon:
                 ax.plot(pts_x, pts_y, "--",
                         color=col, lw=0.7, alpha=0.35, zorder=2)
 
@@ -832,18 +966,36 @@ class InteractiveVisualizer:
                 zorder=7,
             )
 
-        # auto-fit view — skip during drag to avoid bbox recalc every pixel
+        # always-square view: collect control points AND interpolated curve
         if self._drag_pt_idx < 0:
-            ax.margins(0.12)
-            ax.autoscale_view()
+            all_x, all_y = [], []
+            for c in self.curves:
+                if c.visible and c.points:
+                    arr = c.get_array()
+                    all_x.extend(arr[:, 1])
+                    all_y.extend(arr[:, 2])
+                    resampled_bbox, ok_bbox = c.interpolate(draft=False)
+                    if ok_bbox and resampled_bbox is not None:
+                        all_x.extend(resampled_bbox[:, 1])
+                        all_y.extend(resampled_bbox[:, 2])
+            if all_x:
+                xlo, xhi = min(all_x), max(all_x)
+                ylo, yhi = min(all_y), max(all_y)
+                xmid, ymid = (xlo + xhi) / 2, (ylo + yhi) / 2
+                # half-span: largest of the two axes, minimum 1 unit, + 12% pad
+                half = max((xhi - xlo) / 2, (yhi - ylo) / 2, 1.0) * 1.12
+                ax.set_xlim(xmid - half, xmid + half)
+                ax.set_ylim(ymid - half, ymid + half)
+            else:
+                ax.set_xlim(-2, 2)
+                ax.set_ylim(-2, 2)
 
         self.fig.canvas.draw_idle()
 
     def _draw_curve_colored(self, ax, resampled: npt.NDArray, c: Curve, alpha=1.0):
         """Draw interpolated curve as a single LineCollection — one draw call."""
         from matplotlib.collections import LineCollection
-        cmap_name = "plasma" if c.color_mode == "parameter" else "inferno"
-        cmap = plt.get_cmap(cmap_name)
+        cmap = plt.get_cmap(c.colormap)
 
         p0 = resampled[:-1]
         p1 = resampled[1:]
@@ -865,6 +1017,64 @@ class InteractiveVisualizer:
                             capstyle="round")
         lc.set_array(values)
         ax.add_collection(lc)
+
+    def _save_image(self):
+        """Render a clean publication-style image of all visible curves and save it."""
+        import os
+        from matplotlib.collections import LineCollection
+
+        os.makedirs("output", exist_ok=True)
+
+        # count existing files to avoid overwriting
+        existing = [f for f in os.listdir("output") if f.startswith("curves_") and f.endswith(".svg")]
+        save_path = f"output/curves_{len(existing):03d}.svg"
+
+        fig_out, ax_out = plt.subplots(figsize=(8, 8))
+        fig_out.patch.set_facecolor(BG_DARK)
+        ax_out.set_facecolor(BG_DARK)
+        ax_out.set_aspect("equal", adjustable="box")
+        ax_out.grid(True, color="#2a2a2a", linestyle="--", alpha=0.6)
+        ax_out.tick_params(colors=FG_DIM)
+        for spine in ax_out.spines.values():
+            spine.set_edgecolor(FG_DIM)
+
+        all_x, all_y = [], []
+
+        for c in self.curves:
+            if not c.visible or not c.points:
+                continue
+            arr = c.get_array()
+            pts_x, pts_y = arr[:, 1], arr[:, 2]
+            all_x.extend(pts_x); all_y.extend(pts_y)
+
+            # interpolated curve
+            resampled, ok = c.interpolate()
+            if ok and resampled is not None and len(resampled) > 1:
+                self._draw_curve_colored(ax_out, resampled, c, alpha=1.0)
+                all_x.extend(resampled[:, 1]); all_y.extend(resampled[:, 2])
+
+            # control polygon
+            if len(arr) >= 2:
+                ax_out.plot(pts_x, pts_y, "--", color=c.color, lw=0.7, alpha=0.35, zorder=2)
+
+            # control points
+            ax_out.scatter(pts_x[1:-1], pts_y[1:-1], color=c.color, s=18, zorder=5)
+            ax_out.plot(pts_x[0],  pts_y[0],  "o", ms=7, color=c.color, mec="white", mew=1, zorder=6)
+            ax_out.plot(pts_x[-1], pts_y[-1], "x", ms=7, color=c.color, mew=1.8, zorder=6)
+
+        # square bbox matching the interactive view
+        if all_x:
+            xlo, xhi = min(all_x), max(all_x)
+            ylo, yhi = min(all_y), max(all_y)
+            xmid, ymid = (xlo + xhi) / 2, (ylo + yhi) / 2
+            half = max((xhi - xlo) / 2, (yhi - ylo) / 2, 1.0) * 1.12
+            ax_out.set_xlim(xmid - half, xmid + half)
+            ax_out.set_ylim(ymid - half, ymid + half)
+
+        fig_out.tight_layout()
+        fig_out.savefig(save_path, dpi=300, facecolor=BG_DARK)
+        plt.close(fig_out)
+        print(f"Saved: {save_path}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # Public API

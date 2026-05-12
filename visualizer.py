@@ -99,7 +99,7 @@ class Curve:
         for i, row in enumerate(reparametrized):
             self.points[i][0] = float(row[0])
 
-    def interpolate(self):
+    def interpolate(self, draft=False):
         """
         Return (resampled_points, success: bool).
         resampled_points is (M, 3) [t, x, y] or None on failure.
@@ -119,7 +119,7 @@ class Curve:
             resampled = sp_mod.sample_polynomials(
                 parameters=ts,
                 polynomials=np.array([cx, cy]),
-                relative_sample_rate=max(1, self.samples // len(arr)),
+                relative_sample_rate=max(1, (self.samples // len(arr)) if not draft else min(4, self.samples // len(arr))),
             )
             return resampled, True
         except Exception:
@@ -718,7 +718,7 @@ class InteractiveVisualizer:
             is_active = (ci == self.active_idx)
 
             # ── interpolated curve ────────────────────────────────────────────
-            resampled, ok = c.interpolate()
+            resampled, ok = c.interpolate(draft=self._drag_pt_idx >= 0)
             if ok and resampled is not None and len(resampled) > 1:
                 self._draw_curve_colored(ax, resampled, c, alpha=1.0 if is_active else 0.45)
 
@@ -765,14 +765,16 @@ class InteractiveVisualizer:
                 zorder=7,
             )
 
-        # auto-fit view — let matplotlib handle limits; margins add padding
-        ax.margins(0.12)
-        ax.autoscale_view()
+        # auto-fit view — skip during drag to avoid bbox recalc every pixel
+        if self._drag_pt_idx < 0:
+            ax.margins(0.12)
+            ax.autoscale_view()
 
         self.fig.canvas.draw_idle()
 
     def _draw_curve_colored(self, ax, resampled: npt.NDArray, c: Curve, alpha=1.0):
-        """Draw interpolated curve with gradient colour (parameter or speed)."""
+        """Draw interpolated curve as a single LineCollection — one draw call."""
+        from matplotlib.collections import LineCollection
         cmap_name = "plasma" if c.color_mode == "parameter" else "inferno"
         cmap = plt.get_cmap(cmap_name)
 
@@ -782,21 +784,20 @@ class InteractiveVisualizer:
         if c.color_mode == "speed":
             values = np.linalg.norm(p1[:, 1:] - p0[:, 1:], axis=1)
         else:
-            values = (p0[:, 0] + p1[:, 0]) / 2.0   # mid-segment parameter
+            values = (p0[:, 0] + p1[:, 0]) / 2.0
 
         vmin, vmax = values.min(), values.max()
         if vmin == vmax:
             vmax = vmin + 1e-12
         norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
-        for seg_p0, seg_p1, v in zip(p0, p1, values):
-            color = cmap(norm(v))
-            ax.plot(
-                [seg_p0[1], seg_p1[1]],
-                [seg_p0[2], seg_p1[2]],
-                color=color, lw=2.0, alpha=alpha,
-                solid_capstyle="round", zorder=3,
-            )
+        # shape: (N, 2, 2) — N segments, each with 2 points of (x, y)
+        segments = np.stack([p0[:, 1:3], p1[:, 1:3]], axis=1)
+        lc = LineCollection(segments, cmap=cmap, norm=norm,
+                            linewidth=2.0, alpha=alpha, zorder=3,
+                            capstyle="round")
+        lc.set_array(values)
+        ax.add_collection(lc)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Public API
@@ -832,8 +833,8 @@ if __name__ == "__main__":
 
     demo_pts = np.array([
         [0.0,  0.0],
-        [1.0,  1.0]
+        [2.0,  1.0],
     ])
-    vis.load_points(demo_pts, param_mode="uniform")
+    vis.load_points(demo_pts, param_mode="centripetal")
 
     vis.show()

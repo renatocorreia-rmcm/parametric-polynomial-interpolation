@@ -1,9 +1,46 @@
 # Parametric Polynomial Interpolation
 
-## Comparisson of parametrization methods (`μ` values)
+![demo](assets/parametric_polynomial_interpolator.png)
+![demo](insert demo gif here)
 
-![t_i](assets/ti.png)
-![d_i](assets/di.png)
+## Specification
+
+### Use
+Selects, using the mouse, `n` arbitrary points `(t, x, y)`,
+each with an arbitrary **parameter value** `t` and `(x, y)` **space coordinates**.
+
+Then the system  interpolates a parametric polynomial curve between the points
+
+### Features
+
+**Add, move and delete points** in a curve.
+New points can be added even in between existing points, 
+just select the curve mid-point before inserting a new one in between.
+![interaction mode section](insert final screenshot here)
+![selected point section](insert final screenshot here)
+
+**Create and manage multiple curves** at the same time.
+![curves section](insert final screenshot here)
+
+**Set interpolation blending parameter `μ`** for each curve. ([Detailed here](#parametrization-method-μ-values))
+![mu section](insert final screenshot here)
+
+**Set colour mode according to variation rates** (position, speed, acceleration, ...)
+![colour mode section](insert final screenshot here)
+
+**Set curve resolution** (Amount of samples between each point)
+![Samples per segment section](insert final screenshot here)
+
+
+### Operation
+The resolution is done by setting up a system for each dimension x and y, in monomial form,
+and solve using **QR decomposition** by **HouseHolder reflections**.
+
+
+
+## Parametrization method (`μ` values)
+
+![parametrization formula](assets/parametrization.png)
 
 ### Arbitrary
 ![manual](output/manual.svg)
@@ -14,18 +51,9 @@
 ### Chordal `μ = 1`
 ![chordal](output/chordal.svg)
 
-## Especificação
-
-> Na tela gráfica, 
-o usuário com o mouse escolhe n pontos quaisquer, 
-cada ponto deve estar associado a um valor de parâmetro t<sub>i</sub>, também dado pelo usuário, 
-e o seu sistema deverá interpolar (apresentar uma curva polinomial paramétrica que passa pelos pontos).
-
-> A forma de resolução é através da montagem de um sistema para cada dimensão x e y, na forma monomial, 
-por QR (ver livro de G. Farin: Curve and Surface for CAGD, quarta edição, cap. 6). 
-
-> Extras
-> - expand dimensions
+> extra TODOs
+> 
+> Expand Dimensions:
 >   1. parametric 3D curve
 >      - adds z(t)
 >   2. grid curves

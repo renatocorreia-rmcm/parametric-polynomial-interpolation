@@ -23,13 +23,21 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
+# todo: set exponent slider to take 0.05 steps
+
+# todo: change "ACTIVE CURVE SETTINGS" to f"CURVE: {c.name}" and update when active curve changes
+
 # todo: add extrapolation parameter slider  #  tells how much beyond the endpoints to sample
 
 # todo: set minimum axis range to 2x2, so dont get "stuck" in a small window when have few points
 
-# todo: make each curve have a colormap like Purples, Oranges, Blues, etc instead of always being mpl default
-#   then allow to hide each curve os change its colormap (as desmos)
+# todo: make each curve have a monotonic colormap like Purples, Oranges, Blues, etc instead of always being mpl default
+#   then allow to hide each curve and change its colormap (as desmos)
 #   also allow to hide the control polygon separately from the curve
+#   also highlight in CURVES section wich one is the active one
+#   these can be done by togles in each curve in Curves section
+
+# todo: add button to save curve screenshot (just recycle old "plot_experiment()")
 
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
 
@@ -196,14 +204,14 @@ class InteractiveVisualizer:
         row = 0
 
         # ── section: Interaction mode ─────────────────────────────────────────
-        ax_mode_lbl = self.fig.add_subplot(sb[row]);
+        ax_mode_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_mode_lbl.axis("off")
         ax_mode_lbl.text(0.04, 0.5, "INTERACTION MODE",
                          va="center", fontsize=7, color=FG_DIM,
                          transform=ax_mode_lbl.transAxes)
 
-        ax_mode = self.fig.add_subplot(sb[row:row + 2]);
+        ax_mode = self.fig.add_subplot(sb[row:row + 2])
         row += 2
         self.radio_mode = RadioButtons(
             ax_mode, ("add", "move", "delete"),
@@ -211,12 +219,12 @@ class InteractiveVisualizer:
         )
         ax_mode.set_facecolor(BG_PANEL)
         for lbl in self.radio_mode.labels:
-            lbl.set_color(FG_TEXT);
+            lbl.set_color(FG_TEXT)
             lbl.set_fontsize(9)
         self.radio_mode.on_clicked(self._on_mode_changed)
 
         # ── section: Curves list ──────────────────────────────────────────────
-        ax_cl_lbl = self.fig.add_subplot(sb[row]);
+        ax_cl_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_cl_lbl.axis("off")
         ax_cl_lbl.text(0.04, 0.5, "CURVES",
@@ -229,7 +237,7 @@ class InteractiveVisualizer:
         self._curve_btns = []
         MAX_CURVE_BTNS = 5
         for _ in range(MAX_CURVE_BTNS):
-            ax = self.fig.add_subplot(sb[row]);
+            ax = self.fig.add_subplot(sb[row])
             row += 1
             ax.set_facecolor(BG_PANEL)
             b = Button(ax, "", color=BG_PANEL, hovercolor=BG_WIDGET)
@@ -238,14 +246,14 @@ class InteractiveVisualizer:
             self._curve_btn_axes.append(ax)
             self._curve_btns.append(b)
 
-        ax_add = self.fig.add_subplot(sb[row]);
+        ax_add = self.fig.add_subplot(sb[row])
         row += 1
         self.btn_add_curve = Button(ax_add, "+ New Curve", color=BG_WIDGET, hovercolor=BG_PANEL)
         self.btn_add_curve.label.set_fontsize(8)
         self.btn_add_curve.label.set_color(ACCENT)
         self.btn_add_curve.on_clicked(lambda e: self._add_curve())
 
-        ax_del = self.fig.add_subplot(sb[row]);
+        ax_del = self.fig.add_subplot(sb[row])
         row += 1
         self.btn_del_curve = Button(ax_del, "Delete Active Curve", color=BG_WIDGET, hovercolor=BG_PANEL)
         self.btn_del_curve.label.set_fontsize(8)
@@ -253,7 +261,7 @@ class InteractiveVisualizer:
         self.btn_del_curve.on_clicked(lambda e: self._delete_active_curve())
 
         # ── section: Active curve settings ───────────────────────────────────
-        ax_as_lbl = self.fig.add_subplot(sb[row]);
+        ax_as_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_as_lbl.axis("off")
         self._active_settings_label = ax_as_lbl.text(
@@ -263,7 +271,7 @@ class InteractiveVisualizer:
         )
 
         # Param exponent label
-        ax_exp_lbl = self.fig.add_subplot(sb[row]);
+        ax_exp_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_exp_lbl.axis("off")
         ax_exp_lbl.text(0.04, 0.5, "Param exponent  (0=uniform  0.5=centripetal  1=chordal)",
@@ -271,7 +279,7 @@ class InteractiveVisualizer:
                         transform=ax_exp_lbl.transAxes)
 
         # Param exponent slider
-        ax_exp_sl = self.fig.add_subplot(sb[row]);
+        ax_exp_sl = self.fig.add_subplot(sb[row])
         row += 1
         self.slider_exp = Slider(
             ax_exp_sl, "", 0.0, 2.0,
@@ -284,7 +292,7 @@ class InteractiveVisualizer:
         self.slider_exp.on_changed(self._on_exp_slider)
 
         # Param exponent textbox
-        ax_exp_tb = self.fig.add_subplot(sb[row]);
+        ax_exp_tb = self.fig.add_subplot(sb[row])
         row += 1
         self.tb_exp = TextBox(ax_exp_tb, "", initial="0.50",
                               color=BG_WIDGET, hovercolor=BG_PANEL)
@@ -294,7 +302,7 @@ class InteractiveVisualizer:
         self.tb_exp.on_submit(self._on_exp_text)
 
         # Re-parametrize button
-        ax_reparam = self.fig.add_subplot(sb[row]);
+        ax_reparam = self.fig.add_subplot(sb[row])
         row += 1
         self.btn_reparam = Button(ax_reparam, "Apply Parametrization",
                                   color=BG_WIDGET, hovercolor=BG_PANEL)
@@ -303,14 +311,14 @@ class InteractiveVisualizer:
         self.btn_reparam.on_clicked(lambda e: self._apply_parametrization())
 
         # Color mode radio
-        ax_cm_lbl = self.fig.add_subplot(sb[row]);
+        ax_cm_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_cm_lbl.axis("off")
         ax_cm_lbl.text(0.04, 0.5, "Colour mode",
                        va="center", fontsize=7, color=FG_DIM,
                        transform=ax_cm_lbl.transAxes)
 
-        ax_cm = self.fig.add_subplot(sb[row:row + 2]);
+        ax_cm = self.fig.add_subplot(sb[row:row + 2])
         row += 2
         self.radio_colormode = RadioButtons(
             ax_cm, tuple(COLOR_MODES),
@@ -318,19 +326,19 @@ class InteractiveVisualizer:
         )
         ax_cm.set_facecolor(BG_PANEL)
         for lbl in self.radio_colormode.labels:
-            lbl.set_color(FG_TEXT);
+            lbl.set_color(FG_TEXT)
             lbl.set_fontsize(8)
         self.radio_colormode.on_clicked(self._on_colormode_changed)
 
         # Samples slider + textbox
-        ax_smp_lbl = self.fig.add_subplot(sb[row]);
+        ax_smp_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_smp_lbl.axis("off")
         ax_smp_lbl.text(0.04, 0.5, "Samples per segment",
                         va="center", fontsize=7, color=FG_DIM,
                         transform=ax_smp_lbl.transAxes)
 
-        ax_smp_sl = self.fig.add_subplot(sb[row]);
+        ax_smp_sl = self.fig.add_subplot(sb[row])
         row += 1
         self.slider_samples = Slider(
             ax_smp_sl, "", 1, 200,
@@ -342,7 +350,7 @@ class InteractiveVisualizer:
         self.slider_samples.valtext.set_color(FG_TEXT)
         self.slider_samples.on_changed(self._on_samples_slider)
 
-        ax_smp_tb = self.fig.add_subplot(sb[row]);
+        ax_smp_tb = self.fig.add_subplot(sb[row])
         row += 1
         self.tb_samples = TextBox(ax_smp_tb, "", initial="40",
                                   color=BG_WIDGET, hovercolor=BG_PANEL)
@@ -351,7 +359,7 @@ class InteractiveVisualizer:
         self.tb_samples.on_submit(self._on_samples_text)
 
         # ── section: Selected point editor ────────────────────────────────────
-        ax_pe_lbl = self.fig.add_subplot(sb[row]);
+        ax_pe_lbl = self.fig.add_subplot(sb[row])
         row += 1
         ax_pe_lbl.axis("off")
         ax_pe_lbl.text(0.04, 0.5, "SELECTED POINT",
@@ -364,7 +372,7 @@ class InteractiveVisualizer:
             ax_sl = self.fig.add_subplot(sb[sb_row])
             sl = Slider(ax_sl, label, -20, 20, valinit=0, color=ACCENT)
             ax_sl.set_facecolor(BG_WIDGET)
-            sl.label.set_color(FG_DIM);
+            sl.label.set_color(FG_DIM)
             sl.label.set_fontsize(8)
             sl.valtext.set_color(FG_TEXT)
             ax_tb = self.fig.add_subplot(sb[sb_row + 1])
@@ -375,11 +383,11 @@ class InteractiveVisualizer:
             tb.text_disp.set_fontsize(8)
             return sl, tb
 
-        self.sl_px, self.tb_px = _make_coord_widgets("x", row);
+        self.sl_px, self.tb_px = _make_coord_widgets("x", row)
         row += 2
-        self.sl_py, self.tb_py = _make_coord_widgets("y", row);
+        self.sl_py, self.tb_py = _make_coord_widgets("y", row)
         row += 2
-        self.sl_pt, self.tb_pt = _make_coord_widgets("t", row);
+        self.sl_pt, self.tb_pt = _make_coord_widgets("t", row)
         row += 2
 
         self.sl_pt.ax.set_facecolor(BG_WIDGET)
@@ -392,7 +400,7 @@ class InteractiveVisualizer:
         self.tb_py.on_submit(lambda s: self._on_coord_text("y", s))
         self.tb_pt.on_submit(lambda s: self._on_coord_text("t", s))
 
-        ax_del_pt = self.fig.add_subplot(sb[row]);
+        ax_del_pt = self.fig.add_subplot(sb[row])
         row += 1
         self.btn_del_pt = Button(ax_del_pt, "Delete Selected Point",
                                  color=BG_WIDGET, hovercolor=BG_PANEL)
@@ -503,7 +511,7 @@ class InteractiveVisualizer:
         t_min, t_max = min(t_vals) - 1, max(t_vals) + 1
 
         def _set_sl(sl, val, lo, hi):
-            sl.valmin = lo;
+            sl.valmin = lo
             sl.valmax = hi
             sl.ax.set_xlim(lo, hi)
             sl.set_val(np.clip(val, lo, hi))
@@ -613,10 +621,10 @@ class InteractiveVisualizer:
         sl = {"x": self.sl_px, "y": self.sl_py, "t": self.sl_pt}[axis]
         # widen slider range if value is outside current bounds
         if val < sl.valmin:
-            sl.valmin = val - 1;
+            sl.valmin = val - 1
             sl.ax.set_xlim(sl.valmin, sl.valmax)
         if val > sl.valmax:
-            sl.valmax = val + 1;
+            sl.valmax = val + 1
             sl.ax.set_xlim(sl.valmin, sl.valmax)
         sl.set_val(val)
         self._redraw()

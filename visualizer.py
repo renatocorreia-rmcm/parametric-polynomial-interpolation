@@ -23,6 +23,11 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
+# todo: add extrapolation parameter slider  #  tells how much beyond the endpoints to sample
+# todo: set minimum axis range to 2x2, so dont get "stuck" in a small window when have few points
+# todo: make each curve have a colormap like Purples, Oranges, Blues, etc instead of always being mpl default
+# todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
+
 import numpy as np
 import numpy.typing as npt
 import matplotlib as mpl
@@ -71,7 +76,7 @@ class Curve:
         self.points      : list[list[float]]= []
         self.param_exponent : float           = 0
         self.color_mode  : str              = "parameter"
-        self.samples     : int              = 40
+        self.samples     : int              = 15
         self.visible     : bool             = True
 
     # ── derived ──────────────────────────────────────────────────────────────

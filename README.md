@@ -1,13 +1,17 @@
 # Parametric Polynomial Interpolation
 
+## Comparisson of parametrization methods (`μ` values)
 
-### Manual
+![t_i](assets/ti.png)
+![d_i](assets/di.png)
+
+### Arbitrary
 ![manual](output/manual.svg)
-### Uniform - 0
+### Uniform  `μ = 0`
 ![uniform](output/uniform.svg)
-### Centripetal - 0.5
+### Centripetal `μ = 0.5`
 ![chordal](output/centripetal.svg)
-### Chordal - 1
+### Chordal `μ = 1`
 ![chordal](output/chordal.svg)
 
 ## Especificação

@@ -51,13 +51,6 @@ FG_DIM    = "#666666"
 ACCENT    = "#4e8ef7"
 DANGER    = "#e05c5c"
 
-PARAM_MODES = {
-    "manual":      None,          # expects pre-set t values
-    "uniform":     0.0,
-    "centripetal": 0.5,
-    "chordal":     1.0,
-}
-
 COLOR_MODES = ["parameter", "speed"]
 
 POINT_RADIUS   = 8    # px hit-test radius
@@ -76,9 +69,9 @@ class Curve:
         self.color       : str              = CURVE_COLORS[(Curve._counter - 1) % len(CURVE_COLORS)]
         # points stored as list of [t, x, y]
         self.points      : list[list[float]]= []
-        self.param_mode  : str              = "centripetal"
+        self.param_exponent : float           = 0
         self.color_mode  : str              = "parameter"
-        self.samples     : int              = 200
+        self.samples     : int              = 40
         self.visible     : bool             = True
 
     # ── derived ──────────────────────────────────────────────────────────────
@@ -87,15 +80,11 @@ class Curve:
         return np.array(self.points, dtype=float) if self.points else np.empty((0, 3))
 
     def apply_parametrization(self):
-        """Re-compute t values according to current param_mode (in-place)."""
+        """Re-compute t values using param_exponent (in-place)."""
         arr = self.get_array()
         if len(arr) < 2:
             return
-        exp = PARAM_MODES[self.param_mode]
-        if exp is None:
-            # manual: keep current t values
-            return
-        reparametrized = parametize(arr[:, 1:], exponent=exp)  # pass only (x,y)
+        reparametrized = parametize(arr[:, 1:], exponent=self.param_exponent)
         for i, row in enumerate(reparametrized):
             self.points[i][0] = float(row[0])
 
@@ -116,10 +105,12 @@ class Curve:
                 warnings.simplefilter("ignore")
                 cx = vandermond.coefficients(arr[:, [0, 1]])
                 cy = vandermond.coefficients(arr[:, [0, 2]])
+            segments = len(arr) - 1
+            rate = self.samples if not draft else min(4, self.samples)
             resampled = sp_mod.sample_polynomials(
                 parameters=ts,
                 polynomials=np.array([cx, cy]),
-                relative_sample_rate=max(1, (self.samples // len(arr)) if not draft else min(4, self.samples // len(arr))),
+                relative_sample_rate=max(1, rate),
             )
             return resampled, True
         except Exception:
@@ -253,16 +244,33 @@ class InteractiveVisualizer:
             transform=ax_as_lbl.transAxes,
         )
 
-        # Param mode radio
-        ax_pm = self.fig.add_subplot(sb[row:row+3]); row += 3
-        self.radio_param = RadioButtons(
-            ax_pm, tuple(PARAM_MODES.keys()),
-            activecolor=ACCENT,
+        # Param exponent label
+        ax_exp_lbl = self.fig.add_subplot(sb[row]); row += 1
+        ax_exp_lbl.axis("off")
+        ax_exp_lbl.text(0.04, 0.5, "Param exponent  (0=uniform  0.5=centripetal  1=chordal)",
+                        va="center", fontsize=7, color=FG_DIM,
+                        transform=ax_exp_lbl.transAxes)
+
+        # Param exponent slider
+        ax_exp_sl = self.fig.add_subplot(sb[row]); row += 1
+        self.slider_exp = Slider(
+            ax_exp_sl, "", 0.0, 2.0,
+            valinit=0.5, valstep=0.01,
+            color=ACCENT,
         )
-        ax_pm.set_facecolor(BG_PANEL)
-        for lbl in self.radio_param.labels:
-            lbl.set_color(FG_TEXT); lbl.set_fontsize(8)
-        self.radio_param.on_clicked(self._on_param_mode_changed)
+        ax_exp_sl.set_facecolor(BG_WIDGET)
+        self.slider_exp.label.set_color(FG_DIM)
+        self.slider_exp.valtext.set_color(FG_TEXT)
+        self.slider_exp.on_changed(self._on_exp_slider)
+
+        # Param exponent textbox
+        ax_exp_tb = self.fig.add_subplot(sb[row]); row += 1
+        self.tb_exp = TextBox(ax_exp_tb, "", initial="0.50",
+                              color=BG_WIDGET, hovercolor=BG_PANEL)
+        self.tb_exp.label.set_color(FG_DIM)
+        self.tb_exp.text_disp.set_color(FG_TEXT)
+        self.tb_exp.text_disp.set_fontsize(8)
+        self.tb_exp.on_submit(self._on_exp_text)
 
         # Re-parametrize button
         ax_reparam = self.fig.add_subplot(sb[row]); row += 1
@@ -292,14 +300,14 @@ class InteractiveVisualizer:
         # Samples slider + textbox
         ax_smp_lbl = self.fig.add_subplot(sb[row]); row += 1
         ax_smp_lbl.axis("off")
-        ax_smp_lbl.text(0.04, 0.5, "Sample density",
+        ax_smp_lbl.text(0.04, 0.5, "Samples per segment",
                         va="center", fontsize=7, color=FG_DIM,
                         transform=ax_smp_lbl.transAxes)
 
         ax_smp_sl = self.fig.add_subplot(sb[row]); row += 1
         self.slider_samples = Slider(
-            ax_smp_sl, "", 20, 2000,
-            valinit=200, valstep=10,
+            ax_smp_sl, "", 1, 200,
+            valinit=40, valstep=1,
             color=ACCENT,
         )
         ax_smp_sl.set_facecolor(BG_WIDGET)
@@ -308,7 +316,7 @@ class InteractiveVisualizer:
         self.slider_samples.on_changed(self._on_samples_slider)
 
         ax_smp_tb = self.fig.add_subplot(sb[row]); row += 1
-        self.tb_samples = TextBox(ax_smp_tb, "", initial="200",
+        self.tb_samples = TextBox(ax_smp_tb, "", initial="40",
                                   color=BG_WIDGET, hovercolor=BG_PANEL)
         self.tb_samples.label.set_color(FG_DIM)
         self.tb_samples.text_disp.set_color(FG_TEXT)
@@ -430,8 +438,9 @@ class InteractiveVisualizer:
             return
         c = self.curves[self.active_idx]
 
-        # param mode radio
-        self.radio_param.set_active(list(PARAM_MODES.keys()).index(c.param_mode))
+        # param exponent
+        self.slider_exp.set_val(np.clip(c.param_exponent, 0.0, 2.0))
+        self.tb_exp.set_val(f"{c.param_exponent:.2f}")
 
         # color mode radio
         self.radio_colormode.set_active(COLOR_MODES.index(c.color_mode))
@@ -485,11 +494,21 @@ class InteractiveVisualizer:
     def _on_mode_changed(self, label):
         self.interaction_mode = label
 
-    def _on_param_mode_changed(self, label):
+    def _on_exp_slider(self, val):
         c = self._active_curve()
         if c:
-            c.param_mode = label
-            self._redraw()
+            c.param_exponent = round(float(val), 4)
+            self.tb_exp.set_val(f"{c.param_exponent:.2f}")
+
+    def _on_exp_text(self, text):
+        try:
+            val = float(text)
+        except ValueError:
+            return
+        c = self._active_curve()
+        if c:
+            c.param_exponent = val
+        self.slider_exp.set_val(np.clip(val, 0.0, 2.0))
 
     def _apply_parametrization(self):
         c = self._active_curve()
@@ -514,23 +533,35 @@ class InteractiveVisualizer:
     def _on_samples_text(self, text):
         try:
             v = int(float(text))
-            v = np.clip(v, 20, 5000)
+            v = np.clip(v, 1, 10000)
             c = self._active_curve()
             if c:
                 c.samples = v
-            self.slider_samples.set_val(np.clip(v, 20, 2000))
+            self.slider_samples.set_val(np.clip(v, 1, 200))
             self._redraw()
         except ValueError:
             pass
 
     # ── point coord callbacks ─────────────────────────────────────────────────
-    def _on_coord_slider(self, axis: str, val: float):
+    def _set_point_coord(self, axis: str, val: float):
+        """Write one coordinate of the selected point, re-sorting by t if needed."""
         c = self._active_curve()
         if c is None or self._selected_pt < 0:
             return
         pt = c.points[self._selected_pt]
-        idx = {"x": 1, "y": 2, "t": 0}[axis]
-        pt[idx] = val
+        pt[{"x": 1, "y": 2, "t": 0}[axis]] = val
+        if axis == "t":
+            # re-sort and update selected index by object identity
+            c.points.sort(key=lambda p: p[0])
+            self._selected_pt = next(
+                i for i, p in enumerate(c.points) if p is pt
+            )
+
+    def _on_coord_slider(self, axis: str, val: float):
+        c = self._active_curve()
+        if c is None or self._selected_pt < 0:
+            return
+        self._set_point_coord(axis, val)
         tb = {"x": self.tb_px, "y": self.tb_py, "t": self.tb_pt}[axis]
         tb.set_val(f"{val:.3f}")
         self._redraw()
@@ -543,9 +574,7 @@ class InteractiveVisualizer:
         c = self._active_curve()
         if c is None or self._selected_pt < 0:
             return
-        pt = c.points[self._selected_pt]
-        idx = {"x": 1, "y": 2, "t": 0}[axis]
-        pt[idx] = val
+        self._set_point_coord(axis, val)
         sl = {"x": self.sl_px, "y": self.sl_py, "t": self.sl_pt}[axis]
         # widen slider range if value is outside current bounds
         if val < sl.valmin:
@@ -598,8 +627,7 @@ class InteractiveVisualizer:
                 self._selected_pt = next(
                     i for i, p in enumerate(c.points) if p is new_pt
                 )
-                if c.param_mode != "manual":
-                    c.apply_parametrization()
+                c.apply_parametrization()
 
         elif self.interaction_mode == "move":
             if hit_curve >= 0 and hit_pt >= 0:
@@ -621,7 +649,7 @@ class InteractiveVisualizer:
     def _on_release(self, event):
         if self._drag_pt_idx >= 0:
             c = self._active_curve()
-            if c and c.param_mode != "manual":
+            if c:
                 c.apply_parametrization()
             self._sync_point_editor()
             self._redraw()
@@ -680,17 +708,11 @@ class InteractiveVisualizer:
         else:
             t_next = None
         d = np.hypot(x - ref[1], y - ref[2])
-        if c.param_mode == "manual":
-            # place t halfway between ref and next, or ref + distance if at end
-            if t_next is not None:
-                return (ref[0] + t_next) / 2.0
-            return ref[0] + max(d, 1e-3)
-        else:
-            # non-manual: return midpoint t so sorting puts it right after ref;
-            # apply_parametrization will recompute all t values anyway
-            if t_next is not None:
-                return (ref[0] + t_next) / 2.0
-            return ref[0] + max(d, 1e-3)
+        # midpoint t puts new point right after ref in sorted order;
+        # apply_parametrization will recompute all t values anyway
+        if t_next is not None:
+            return (ref[0] + t_next) / 2.0
+        return ref[0] + max(d, 1e-3)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Drawing
@@ -805,7 +827,7 @@ class InteractiveVisualizer:
     def show(self):
         plt.show()
 
-    def load_points(self, points: npt.NDArray, param_mode: str = "centripetal"):
+    def load_points(self, points: npt.NDArray, param_exponent: float = 0):
         """
         Load a (N,2) or (N,3) array into a new curve.
         If (N,3): columns are [t, x, y].
@@ -815,9 +837,9 @@ class InteractiveVisualizer:
         if c is None:
             self._add_curve()
             c = self._active_curve()
-        c.param_mode = param_mode
+        c.param_exponent = param_exponent
         if points.shape[1] == 2:
-            tmp = parametize(points, exponent=PARAM_MODES.get(param_mode, 0.5))
+            tmp = parametize(points, exponent=param_exponent)
         else:
             tmp = points.copy()
         c.points = [[row[0], row[1], row[2]] for row in tmp]
@@ -835,6 +857,6 @@ if __name__ == "__main__":
         [0.0,  0.0],
         [2.0,  1.0],
     ])
-    vis.load_points(demo_pts, param_mode="centripetal")
+    vis.load_points(demo_pts, param_exponent=0)
 
     vis.show()

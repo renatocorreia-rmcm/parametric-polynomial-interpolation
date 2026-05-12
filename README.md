@@ -1,6 +1,6 @@
 # Parametric Polynomial Interpolation
 
-![demo](assets/parametric_polynomial_interpolator.png)
+![demo](assets/Parametric_Polynomial_Interpolator.png)
 ![demo](insert demo gif here)
 
 ## Specification

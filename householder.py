@@ -43,7 +43,7 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
         H_sub = reflection(a_i=a_i, i=0)  # local index starts at 0
 
         # embed into full matrix
-        H_i = np.eye(n)
+        H_i = np.identity(n)
         H_i[i:, i:] = H_sub
 
         Q = Q @ H_i

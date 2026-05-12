@@ -10,7 +10,9 @@ from parametize import parametize
 
 def main(
         interpolation_points: npt.NDArray,
-        experiment_name: str = None
+        experiment_name: str = None,
+        color_setting: int = 0,
+        color_mode: str = "parameter"
 ):
     # GET POLYNOMIALS
 
@@ -33,6 +35,8 @@ def main(
     plot_experiment(
         original_points=interpolation_points,
         resampled_points=resampled_points,
+        color_setting=color_setting,
+        color_mode=color_mode,
         experiment_name=experiment_name
     )
 
@@ -40,19 +44,48 @@ def main(
 if __name__ == "__main__":
 
     points: npt.NDArray = np.array([  # todo: test cancelation error: include resampled points here (aligned points)
-            [0.0, 0.0, 0.0],
-            [1.0, 2.0, 1.0],
-            [2.0, 0.0, 3.0],
-            [3.0, 0.0, 1.0],
-            [3.5, -1.0, 2.7],
-            [4.0, -2.0, 3.0],
-            [5.0, -1.0, -6.0]
+        # [t, x, y]
+        [0.0, 0.0, 0.0],
+        [1.0, 2.0, 1.0],
+        [2.0, 0.0, 3.0],
+        [3.0, 0.0, 1.0],
+        [3.5, -1.0, 2.7],
+        [4.0, -2.0, 3.0],
+        [5.0, -1.0, -6.0]
     ])
 
-    unparametized_points = points[:, [0,1]]
-    print(parametize(unparametized_points, method="uniform")) 
+    main(
+        interpolation_points=parametize(points),
+        experiment_name="manual",
+        color_setting=0,
+        color_mode="parameter"
+    )
 
     main(
-        interpolation_points=points,
-        experiment_name="vandermonde_interpolation"
+        interpolation_points=parametize(points, exponent=0),
+        experiment_name="uniform",
+        color_setting=1,
+        color_mode="parameter"
     )
+
+    main(
+        interpolation_points=parametize(points, exponent=0.5),
+        experiment_name="centripetal",
+        color_setting=2,
+        color_mode="parameter"
+    )
+
+    main(
+        interpolation_points=parametize(points, exponent=1),
+        experiment_name="chordal",
+        color_setting=2,
+        color_mode="parameter"
+
+    )
+
+    #
+    # main(
+    #     interpolation_points=parametize(points, exponent=0.25),
+    #     experiment_name="0.25",
+    #     color_setting=4
+    # )

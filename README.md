@@ -1,10 +1,14 @@
 # Parametric Polynomial Interpolation
 
-<div style="display: flex; justify-content: space-around; align-items: center;">
 
-<img src="output/vandermonde_interpolation.svg">
-
-</div>
+### Manual
+![manual](output/manual.svg)
+### Uniform - 0
+![uniform](output/uniform.svg)
+### Centripetal - 0.5
+![chordal](output/centripetal.svg)
+### Chordal - 1
+![chordal](output/chordal.svg)
 
 ## Especificação
 
@@ -17,7 +21,6 @@ e o seu sistema deverá interpolar (apresentar uma curva polinomial paramétrica
 por QR (ver livro de G. Farin: Curve and Surface for CAGD, quarta edição, cap. 6). 
 
 > Extras
-> - auto compute t (see references)
 > - expand dimensions
 >   1. parametric 3D curve
 >      - adds z(t)
@@ -29,8 +32,7 @@ por QR (ver livro de G. Farin: Curve and Surface for CAGD, quarta edição, cap.
 >       - interpolation between grid curves
 >   4. surface
 >       - bilinear surfaces
-> - sistemas lineares resolvidos por ambos os
-métodos iterativos estudados em aula. 
+
 
 
 ## References

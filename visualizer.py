@@ -23,6 +23,8 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
+# todo: merge solve and solvexy
+
 # todo: Fix the decomposition itself (medium impact, math change) — instead of materialising the full H_i matrix and doing n×n mmpys, apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv), which is O(n²) per column instead of O(n³). This is the standard implementation. The current code builds explicit n×n reflection matrices unnecessarily.
 
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))

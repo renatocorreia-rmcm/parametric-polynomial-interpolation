@@ -34,7 +34,10 @@ just select the curve mid-point before inserting a new one in between.
 
 ### Operation
 The resolution is done by setting up a system for each dimension x and y, in monomial form,
-and solve using **QR decomposition** by **HouseHolder reflections**.
+and solve using **QR decomposition** by **HouseHolder reflections** in the analytical form Hv = v - 2*(<v,e>/<e,e>)*e.
+
+#### The core mathematics 
+HouseHolder reflections are used to generate an orthonormal
 
 
 

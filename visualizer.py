@@ -23,9 +23,7 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# todo:Cache the polynomial coefficients (high impact, zero math change) — the Vandermonde solve only needs to rerun when the curve's control points actually change. Right now it reruns on every single redraw, including things like toggling labels or switching active curve. A dirty flag on Curve would skip the solve entirely in those cases.
-
-# todo:Fix the decomposition itself (medium impact, math change) — instead of materialising the full H_i matrix and doing n×n mmpys, apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv), which is O(n²) per column instead of O(n³). This is the standard implementation. The current code builds explicit n×n reflection matrices unnecessarily.
+# todo: Fix the decomposition itself (medium impact, math change) — instead of materialising the full H_i matrix and doing n×n mmpys, apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv), which is O(n²) per column instead of O(n³). This is the standard implementation. The current code builds explicit n×n reflection matrices unnecessarily.
 
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
 
@@ -90,6 +88,8 @@ class Curve:
         self.visible: bool = True
         self.show_polygon: bool = True
         self.show_labels: bool = True
+        self._coeff_cache: np.ndarray | None = None
+        self._cache_key: tuple | None = None
 
     # ── derived ──────────────────────────────────────────────────────────────
     def get_array(self) -> npt.NDArray:  # curve points
@@ -105,18 +105,29 @@ class Curve:
         for i, row in enumerate(reparametrized):
             self.points[i][0] = float(row[0])
 
+    def _make_cache_key(self) -> tuple:
+        """A hashable key that changes iff the control points change."""
+        return tuple(tuple(p) for p in self.points)
+
     def interpolate(self, draft=False):
         """
         Return resampled_points.
         resampled_points is (M, 3) [t, x, y].
+        Polynomial coefficients are cached and reused as long as control
+        points have not changed; only polyval is re-run when sample
+        count or extrapolation changes.
         """
 
         arr = self.get_array()
         if len(arr) < MIN_POINTS_FIT:
             return None, False
 
-        # set up polynomials
-        polynomials = vandermond.coefficients(arr)
+        # ── coefficient cache ─────────────────────────────────────────────
+        key = self._make_cache_key()
+        if key != self._cache_key or self._coeff_cache is None:
+            self._coeff_cache = vandermond.coefficients(arr)
+            self._cache_key = key
+        polynomials = self._coeff_cache
 
         # set up samples
         ts = arr[:, 0]

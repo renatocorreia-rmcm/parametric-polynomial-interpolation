@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 
 import vandermond
-from sample_polynomials import sample_polynomials
+from sampling import sample_polynomials
 from plot_experiment import plot_experiment
 
 from parametize import parametize

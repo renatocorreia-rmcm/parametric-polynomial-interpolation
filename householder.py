@@ -52,19 +52,28 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
     return Q, R
 
 
-def inversion(A: npt.NDArray[float]) -> npt.NDArray[float]:
+def solve(QR, b):
     """
-    returns the inverse of A using Householder decomposition
+    QRx=b
+    Rx=(Q^t)b  backsubstitute here
     """
 
-    Q, R = decomposition(A)
+    Q, R = QR
 
-    Q_inv = Q.T
+    return solve_triangular(R, Q.T @ b)
 
-    R_inv = solve_triangular(  # back substitute in O(n^2)
-        R,
-        np.identity(R.shape[0]),
-        lower=False
-    )
 
-    return R_inv @ Q_inv
+def solve_xy(A, x, y):
+    """
+    Decompose A once, solve both x and y
+
+    Ax=b
+    QRx=b
+    Rx=(Q^t)b  backsubstitute here
+    """
+
+    QR = decomposition(A)
+    coefficients_x = solve(QR=QR, b=x)
+    coefficients_y = solve(QR=QR, b=y)
+
+    return coefficients_x, coefficients_y

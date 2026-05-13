@@ -23,6 +23,10 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
+# todo:Cache the polynomial coefficients (high impact, zero math change) — the Vandermonde solve only needs to rerun when the curve's control points actually change. Right now it reruns on every single redraw, including things like toggling labels or switching active curve. A dirty flag on Curve would skip the solve entirely in those cases.
+
+# todo:Fix the decomposition itself (medium impact, math change) — instead of materialising the full H_i matrix and doing n×n mmpys, apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv), which is O(n²) per column instead of O(n³). This is the standard implementation. The current code builds explicit n×n reflection matrices unnecessarily.
+
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
 
 import numpy as np
@@ -32,12 +36,14 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Button, Slider, TextBox, RadioButtons
 from matplotlib.lines import Line2D
+from matplotlib.collections import LineCollection
 from matplotlib.patches import FancyArrowPatch
 import warnings
 
+import sampling
 # ── project modules ───────────────────────────────────────────────────────────
 import vandermond
-import sample_polynomials as sp_mod
+import sampling as sp_mod
 from parametize import parametize
 
 # ── palette ───────────────────────────────────────────────────────────────────
@@ -76,17 +82,17 @@ class Curve:
         self.name: str = f"Curve {Curve._counter}"
         self.color: str = CURVE_COLORS[(Curve._counter - 1) % len(CURVE_COLORS)]
         self.colormap: str = CURVE_COLORMAPS[(Curve._counter - 1) % len(CURVE_COLORMAPS)]
-        # points stored as list of [t, x, y]
-        self.points: list[list[float]] = []
+        self.points: list[list[float]] = []  # points stored as list of [t, x, y]
         self.param_exponent: float = 0
         self.color_mode: str = "parameter"
         self.samples: int = 15
         self.extrapolation: float = 0.0
         self.visible: bool = True
         self.show_polygon: bool = True
+        self.show_labels: bool = True
 
     # ── derived ──────────────────────────────────────────────────────────────
-    def get_array(self) -> npt.NDArray:
+    def get_array(self) -> npt.NDArray:  # curve points
         """Return (N, 3) array [t, x, y]."""
         return np.array(self.points, dtype=float) if self.points else np.empty((0, 3))
 
@@ -101,35 +107,34 @@ class Curve:
 
     def interpolate(self, draft=False):
         """
-        Return (resampled_points, success: bool).
-        resampled_points is (M, 3) [t, x, y] or None on failure.
+        Return resampled_points.
+        resampled_points is (M, 3) [t, x, y].
         """
+
         arr = self.get_array()
         if len(arr) < MIN_POINTS_FIT:
             return None, False
-        # need unique, sorted t values
+
+        # set up polynomials
+        polynomials = vandermond.coefficients(arr)
+
+        # set up samples
         ts = arr[:, 0]
-        if len(np.unique(ts)) < len(ts):
-            return None, False
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                cx = vandermond.coefficients(arr[:, [0, 1]])
-                cy = vandermond.coefficients(arr[:, [0, 2]])
-            rate = self.samples if not draft else min(4, self.samples)
-            t_span = ts[-1] - ts[0]
-            ext = self.extrapolation * t_span
-            t_start = ts[0] - ext
-            t_end   = ts[-1] + ext
-            n_samples = max(2, int(rate * len(ts)))
-            t_samp = np.linspace(t_start, t_end, n_samples)
-            xy = np.polynomial.polynomial.polyval(
-                x=t_samp, c=np.array([cx, cy]).T
-            )
-            resampled = np.column_stack([t_samp, xy.T])
-            return resampled, True
-        except Exception:
-            return None, False
+        relative_sample_rate = self.samples if not draft else min(5, self.samples)
+        relative_extrapolation_rate = self.extrapolation
+        parameter_samples = sampling.generate_samples(
+            ts=ts,
+            relative_sample_rate=relative_sample_rate,
+            relative_extrapolation_rate=relative_extrapolation_rate
+        )
+
+        # evaluate polynomials at samples
+        resampled = sampling.sample_polynomials(
+            parameter_samples=parameter_samples,
+            polynomials=polynomials
+        )
+
+        return resampled, True
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +148,8 @@ class InteractiveVisualizer:
         self.interaction_mode: str = "add"  # "add" | "move" | "delete"
         self._drag_pt_idx: int = -1
         self._drag_curve_idx: int = -1
+        self._drag_xlim: tuple = (-2, 2)
+        self._drag_ylim: tuple = (-2, 2)
 
         self._build_figure()
         self._connect_events()
@@ -238,6 +245,7 @@ class InteractiveVisualizer:
         self._curve_vis_btns = []
         self._curve_pol_btns = []
         self._curve_cmp_btns = []
+        self._curve_lbl_btns = []
         MAX_CURVE_SLOTS = 5
         for slot in range(MAX_CURVE_SLOTS):
             # Row A — full-width select button
@@ -251,27 +259,31 @@ class InteractiveVisualizer:
             self._curve_btns.append(b_sel)
             # Row B — 3 toggle buttons using a nested 1x3 GridSpec
             sub_gs = gridspec.GridSpecFromSubplotSpec(
-                1, 3, subplot_spec=sb[row], wspace=0.04
+                1, 4, subplot_spec=sb[row], wspace=0.04
             )
             row += 1
             ax_vis = self.fig.add_subplot(sub_gs[0, 0])
             ax_pol = self.fig.add_subplot(sub_gs[0, 1])
             ax_cmp = self.fig.add_subplot(sub_gs[0, 2])
-            for ax_t in (ax_vis, ax_pol, ax_cmp):
+            ax_lbl = self.fig.add_subplot(sub_gs[0, 3])
+            for ax_t in (ax_vis, ax_pol, ax_cmp, ax_lbl):
                 ax_t.set_facecolor(BG_PANEL)
                 ax_t.set_visible(False)
             b_vis = Button(ax_vis, "", color=BG_PANEL, hovercolor=BG_WIDGET)
             b_pol = Button(ax_pol, "", color=BG_PANEL, hovercolor=BG_WIDGET)
             b_cmp = Button(ax_cmp, "", color=BG_PANEL, hovercolor=BG_WIDGET)
-            for b in (b_vis, b_pol, b_cmp):
+            b_lbl = Button(ax_lbl, "", color=BG_PANEL, hovercolor=BG_WIDGET)
+            for b in (b_vis, b_pol, b_cmp, b_lbl):
                 b.label.set_fontsize(7)
                 b.label.set_color(FG_DIM)
             b_vis.on_clicked(lambda e, idx=slot: self._toggle_curve_visible(idx))
             b_pol.on_clicked(lambda e, idx=slot: self._toggle_curve_polygon(idx))
             b_cmp.on_clicked(lambda e, idx=slot: self._cycle_curve_colormap(idx))
+            b_lbl.on_clicked(lambda e, idx=slot: self._toggle_curve_labels(idx))
             self._curve_vis_btns.append(b_vis)
             self._curve_pol_btns.append(b_pol)
             self._curve_cmp_btns.append(b_cmp)
+            self._curve_lbl_btns.append(b_lbl)
 
         ax_add = self.fig.add_subplot(sb[row])
         row += 1
@@ -516,6 +528,7 @@ class InteractiveVisualizer:
         if 0 <= idx < len(self.curves):
             self.active_idx = idx
             self._selected_pt = -1
+            self._update_sidebar_curve_buttons()
             self._sync_sidebar_to_active()
             self._redraw()
 
@@ -539,6 +552,12 @@ class InteractiveVisualizer:
             self._update_sidebar_curve_buttons()
             self._redraw()
 
+    def _toggle_curve_labels(self, idx: int):
+        if 0 <= idx < len(self.curves):
+            self.curves[idx].show_labels = not self.curves[idx].show_labels
+            self._update_sidebar_curve_buttons()
+            self._redraw()
+
     # ── sidebar curve buttons ─────────────────────────────────────────────────
     def _update_sidebar_curve_buttons(self):
         for i in range(len(self._curve_btns)):
@@ -547,6 +566,7 @@ class InteractiveVisualizer:
             b_vis = self._curve_vis_btns[i]
             b_pol = self._curve_pol_btns[i]
             b_cmp = self._curve_cmp_btns[i]
+            b_lbl = self._curve_lbl_btns[i]
 
             if i < len(self.curves):
                 c = self.curves[i]
@@ -554,8 +574,10 @@ class InteractiveVisualizer:
                 bg = BG_WIDGET if is_active else BG_PANEL
 
                 # ── Row A: select button ──────────────────────────────────
-                btn.label.set_text(f"● {c.name}")
+                active_marker = "▶ " if is_active else "   "
+                btn.label.set_text(f"{active_marker}● {c.name}")
                 btn.label.set_color(c.color)
+                btn.label.set_fontweight("bold" if is_active else "normal")
                 btn.ax.set_facecolor(bg)
                 btn.color = bg          # keep Button internal state in sync
                 ax_a.set_visible(True)
@@ -563,19 +585,21 @@ class InteractiveVisualizer:
 
                 # ── Row B: toggle buttons (pre-built, just update) ────────
                 cmap_short = c.colormap.replace('_r', '')
-                b_vis.label.set_text("show" if c.visible     else "hide")
-                b_pol.label.set_text("poly" if c.show_polygon else "poly off")
+                b_vis.label.set_text("show" if c.visible      else "hide")
+                b_pol.label.set_text("poly" if c.show_polygon  else "poly off")
                 b_cmp.label.set_text(cmap_short[:7])
-                b_vis.label.set_color(c.color if c.visible     else FG_DIM)
-                b_pol.label.set_color(c.color if c.show_polygon else FG_DIM)
+                b_lbl.label.set_text("t=" if c.show_labels    else "t= off")
+                b_vis.label.set_color(c.color if c.visible      else FG_DIM)
+                b_pol.label.set_color(c.color if c.show_polygon  else FG_DIM)
                 b_cmp.label.set_color(c.color)
-                for b in (b_vis, b_pol, b_cmp):
+                b_lbl.label.set_color(c.color if c.show_labels  else FG_DIM)
+                for b in (b_vis, b_pol, b_cmp, b_lbl):
                     b.ax.set_facecolor(bg)
                     b.color = bg
                     b.ax.set_visible(True)
             else:
                 ax_a.set_visible(False)
-                for b in (b_vis, b_pol, b_cmp):
+                for b in (b_vis, b_pol, b_cmp, b_lbl):
                     b.ax.set_visible(False)
 
         self.fig.canvas.draw_idle()
@@ -812,6 +836,9 @@ class InteractiveVisualizer:
             if hit_curve >= 0 and hit_pt >= 0:
                 self._drag_curve_idx = hit_curve
                 self._drag_pt_idx = hit_pt
+                # snapshot current view so we can freeze it during the drag
+                self._drag_xlim = self.ax_canvas.get_xlim()
+                self._drag_ylim = self.ax_canvas.get_ylim()
                 self._set_active_curve(hit_curve)
                 self._selected_pt = hit_pt
 
@@ -907,6 +934,8 @@ class InteractiveVisualizer:
             color=FG_DIM, fontsize=8, pad=4,
         )
 
+        resampled_cache: dict[int, npt.NDArray | None] = {}
+
         for ci, c in enumerate(self.curves):
             if not c.visible or not c.points:
                 continue
@@ -920,81 +949,86 @@ class InteractiveVisualizer:
 
             # ── interpolated curve ────────────────────────────────────────────
             resampled, ok = c.interpolate(draft=self._drag_pt_idx >= 0)
+            resampled_cache[ci] = resampled if ok else None
             if ok and resampled is not None and len(resampled) > 1:
-                self._draw_curve_colored(ax, resampled, c, alpha=1.0 if is_active else 0.45)
+                self._draw_curve_colored(ax, resampled, c, alpha=1.0)
 
             # ── control polygon ───────────────────────────────────────────────
             if len(arr) >= 2 and c.show_polygon:
                 ax.plot(pts_x, pts_y, "--",
                         color=col, lw=0.7, alpha=0.35, zorder=2)
 
-            # ── control points ────────────────────────────────────────────────
-            for pi, pt in enumerate(c.points):
-                is_sel = (is_active and pi == self._selected_pt)
-                ms = 10 if is_sel else 6
-                mk = "D" if is_sel else "o"
-                ec = "white" if is_sel else col
-                ax.plot(pt[1], pt[2], mk,
-                        ms=ms, color=col,
-                        mec=ec, mew=1.5 if is_sel else 0.8,
-                        zorder=5, alpha=1.0 if is_active else 0.6)
+            # ── control points (batched) ──────────────────────────────────────
+            sel = self._selected_pt if is_active else -1
 
-                # t label
-                t_lbl = f"t={pt[0]:.2f}"
-                ax.annotate(
-                    t_lbl, xy=(pt[1], pt[2]),
-                    xytext=(4, 6), textcoords="offset points",
-                    fontsize=6.5, color=col,
-                    alpha=0.9 if is_active else 0.5,
-                    zorder=6,
-                )
+            normal_idx = [pi for pi in range(len(c.points)) if pi != sel]
+            if normal_idx:
+                nx = [c.points[pi][1] for pi in normal_idx]
+                ny = [c.points[pi][2] for pi in normal_idx]
+                ax.scatter(nx, ny, s=36, color=col,
+                           edgecolors=col, linewidths=0.8,
+                           marker="o", zorder=5)
+
+            if 0 <= sel < len(c.points):
+                sp = c.points[sel]
+                ax.scatter([sp[1]], [sp[2]], s=100, color=col,
+                           edgecolors="white", linewidths=1.5,
+                           marker="D", zorder=5)
+
+            # t labels — one annotate per point (text artists can't be batched)
+            if c.show_labels:
+                for pt in c.points:
+                    ax.annotate(
+                        f"t={pt[0]:.2f}", xy=(pt[1], pt[2]),
+                        xytext=(4, 6), textcoords="offset points",
+                        fontsize=6.5, color=col, alpha=0.9, zorder=6,
+                    )
 
             # ── start / end markers ───────────────────────────────────────────
             ax.plot(*pts_x[:1], *pts_y[:1], "o",
-                    ms=9, color=col, mec="white", mew=1.2, zorder=6,
-                    alpha=1.0 if is_active else 0.5)
+                    ms=9, color=col, mec="white", mew=1.2, zorder=6)
             ax.plot(*pts_x[-1:], *pts_y[-1:], "x",
-                    ms=9, color=col, mew=2, zorder=6,
-                    alpha=1.0 if is_active else 0.5)
+                    ms=9, color=col, mew=2, zorder=6)
 
-            # curve name label near first point
-            ax.text(
-                pts_x[0], pts_y[0],
-                f"  {c.name}",
-                fontsize=7.5, color=col,
-                va="center", alpha=0.85 if is_active else 0.4,
-                zorder=7,
-            )
 
-        # always-square view: collect control points AND interpolated curve
-        if self._drag_pt_idx < 0:
-            all_x, all_y = [], []
-            for c in self.curves:
-                if c.visible and c.points:
-                    arr = c.get_array()
-                    all_x.extend(arr[:, 1])
-                    all_y.extend(arr[:, 2])
-                    resampled_bbox, ok_bbox = c.interpolate(draft=False)
-                    if ok_bbox and resampled_bbox is not None:
-                        all_x.extend(resampled_bbox[:, 1])
-                        all_y.extend(resampled_bbox[:, 2])
-            if all_x:
-                xlo, xhi = min(all_x), max(all_x)
-                ylo, yhi = min(all_y), max(all_y)
-                xmid, ymid = (xlo + xhi) / 2, (ylo + yhi) / 2
-                # half-span: largest of the two axes, minimum 1 unit, + 12% pad
-                half = max((xhi - xlo) / 2, (yhi - ylo) / 2, 1.0) * 1.12
-                ax.set_xlim(xmid - half, xmid + half)
-                ax.set_ylim(ymid - half, ymid + half)
-            else:
-                ax.set_xlim(-2, 2)
-                ax.set_ylim(-2, 2)
+        # always-square view: recompute from all visible points.
+        # During a drag, only ever expand the view (never shrink).
+        # Reuse the resampled data already computed during the draw loop above.
+        all_x, all_y = [], []
+        for ci, c in enumerate(self.curves):
+            if c.visible and c.points:
+                arr = c.get_array()
+                all_x.extend(arr[:, 1])
+                all_y.extend(arr[:, 2])
+                resampled_bbox = resampled_cache.get(ci)
+                if resampled_bbox is not None:
+                    all_x.extend(resampled_bbox[:, 1])
+                    all_y.extend(resampled_bbox[:, 2])
+        if all_x:
+            xlo, xhi = min(all_x), max(all_x)
+            ylo, yhi = min(all_y), max(all_y)
+            xmid = (xlo + xhi) / 2
+            ymid = (ylo + yhi) / 2
+            half = max((xhi - xlo) / 2, (yhi - ylo) / 2, 1.0) * 1.12
+            if self._drag_pt_idx >= 0:
+                # union with the saved drag-start bounds so we only expand
+                new_xlo = min(xmid - half, self._drag_xlim[0])
+                new_xhi = max(xmid + half, self._drag_xlim[1])
+                new_ylo = min(ymid - half, self._drag_ylim[0])
+                new_yhi = max(ymid + half, self._drag_ylim[1])
+                xmid = (new_xlo + new_xhi) / 2
+                ymid = (new_ylo + new_yhi) / 2
+                half = max((new_xhi - new_xlo) / 2, (new_yhi - new_ylo) / 2)
+            ax.set_xlim(xmid - half, xmid + half)
+            ax.set_ylim(ymid - half, ymid + half)
+        else:
+            ax.set_xlim(-2, 2)
+            ax.set_ylim(-2, 2)
 
         self.fig.canvas.draw_idle()
 
     def _draw_curve_colored(self, ax, resampled: npt.NDArray, c: Curve, alpha=1.0):
         """Draw interpolated curve as a single LineCollection — one draw call."""
-        from matplotlib.collections import LineCollection
         cmap = plt.get_cmap(c.colormap)
 
         p0 = resampled[:-1]
@@ -1021,7 +1055,6 @@ class InteractiveVisualizer:
     def _save_image(self):
         """Render a clean publication-style image of all visible curves and save it."""
         import os
-        from matplotlib.collections import LineCollection
 
         os.makedirs("output", exist_ok=True)
 

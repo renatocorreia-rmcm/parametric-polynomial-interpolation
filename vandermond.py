@@ -5,42 +5,26 @@ import householder
 
 
 def coefficients(
-        interpolation_points: npt.NDArray[float],  # [(t, y)]
+        interpolation_points: npt.NDArray[float],  # [(t, x, y)]
 ) -> npt.NDArray[float]:
     """
     return the coefficients of the polynomial that interpolates the given points, in increasing order of degree
 
-    y = T * a
+    solve
+    T*cx=x and T*cy=y
+    where T is the Vandermond matrix of the t's
     """
 
-    t, y = interpolation_points.T
+    t, x, y = interpolation_points.T
 
     polynomial_degree = len(interpolation_points) - 1
     amount_of_coefficients = polynomial_degree + 1
 
-    T: npt.NDArray[float] = np.zeros(shape=(amount_of_coefficients, amount_of_coefficients), dtype=float)
-
-    # setting T by vectorized approach T_ij = (t_i)^j
+    # setting T by vectorized approach T = [(t_i)^j]
     exponents = np.arange(amount_of_coefficients)
     T = t[:, None] ** exponents
 
-    # setting T by collumn
-    """
-    for index_column in range(amount_of_coefficients):
-        T[:, index_column] = t ** index_column
+    # solve T*cx=x and T*cy=y
+    coefficients_x, coefficients_y = householder.solve_xy(A=T, x=x, y=y)
 
-    """
-
-    # setting T by line
-    """
-    exponents = np.arange(amount_of_coefficients)
-    print(exponents)
-    for line in range(amount_of_coefficients):
-        T[line] = interpolation_points[line, 0] ** exponents
-    """
-
-    T_inv = householder.inversion(T)
-
-    coefficients = T_inv @ y
-
-    return coefficients
+    return np.array([coefficients_x, coefficients_y])

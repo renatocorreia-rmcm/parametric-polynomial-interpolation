@@ -3,6 +3,14 @@ import numpy.typing as npt
 from scipy.linalg import solve_triangular
 
 
+# todo: Fix the decomposition itself (medium impact, math change) —
+#  instead of materialising the full H_i matrix and doing n×n mmpys,
+#  apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv),
+#  which is O(n²) per column instead of O(n³).
+#  This is the standard implementation.
+#  The current code builds explicit n×n reflection matrices unnecessarily.
+
+
 def reflection(a_i: npt.NDArray[float], i: int) -> npt.NDArray[float]:
     """
     returns the Householder reflection matrix H_i such that H_i @ a_i = norm(a_i) * e_i
@@ -52,17 +60,6 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
     return Q, R
 
 
-def solve(QR, b):
-    """
-    QRx=b
-    Rx=(Q^t)b  backsubstitute here
-    """
-
-    Q, R = QR
-
-    return solve_triangular(R, Q.T @ b)
-
-
 def solve_xy(A, x, y):
     """
     Decompose A once, solve both x and y
@@ -72,8 +69,9 @@ def solve_xy(A, x, y):
     Rx=(Q^t)b  backsubstitute here
     """
 
-    QR = decomposition(A)
-    coefficients_x = solve(QR=QR, b=x)
-    coefficients_y = solve(QR=QR, b=y)
+    Q, R = decomposition(A)
+
+    coefficients_x = solve_triangular(R, Q.T @ x)
+    coefficients_y = solve_triangular(R, Q.T @ y)
 
     return coefficients_x, coefficients_y

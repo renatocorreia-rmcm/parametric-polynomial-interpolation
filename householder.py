@@ -5,7 +5,7 @@ from scipy.linalg import solve_triangular
 
 # todo: Fix the decomposition itself (medium impact, math change) —
 #  instead of materialising the full H_i matrix and doing n×n mmpys,
-#  apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv),
+#  apply the Householder reflector implicitly using the rank-1 update formula: H·v = v - 2·u·(uᵀv), thus HA = A - 2·u·(uᵀA)
 #  which is O(n²) per column instead of O(n³).
 #  This is the standard implementation.
 #  The current code builds explicit n×n reflection matrices unnecessarily.

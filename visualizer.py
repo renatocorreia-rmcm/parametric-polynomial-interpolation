@@ -30,7 +30,7 @@ Or run this file directly for a demo with one pre-loaded curve.
 import numpy as np
 import numpy.typing as npt
 import matplotlib as mpl
-mpl.use("QtAgg")  # ou QtAgg
+mpl.use("qtagg")  # ou PyQt6
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Button, Slider, TextBox, RadioButtons

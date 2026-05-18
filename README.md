@@ -34,8 +34,8 @@ pip install -r requirements.txt
 Clone and run:
 
 ```bash
-git clone <repo-url>
-cd <repo>
+git clone https://github.com/renatocorreia-rmcm/parametric-polynomial-interpolation.git
+cd parametric-polynomial-interpolation
 python visualizer.py
 ```
 
@@ -49,35 +49,25 @@ import numpy as np
 
 vis = InteractiveVisualizer()
 
-# Optionally pre-load points as (N, 2) array [x, y]
-# or (N, 3) array [t, x, y] if you want manual parameter values
-pts = np.array([[0, 0], [1, 2], [3, 1], [4, 3]], dtype=float)
-vis.load_points(pts, param_exponent=0.5)  # centripetal parametrization
+
+pts = np.array([[0, 0], [1, 2], [3, 1], [4, 3]], dtype=float)  # Optionally pre-load points as (N, 2) array [x, y]  # or (N, 3) array [t, x, y] if you want manual parameter values
+vis.load_points(pts)
 
 vis.show()
 ```
 
-Or simply run `python visualizer.py` for an interactive demo with one pre-loaded curve.
+Or simply run `python visualizer.py`.
 
 ---
 
 ## Usage
 
-Select `n` arbitrary points `(x, y)` on the canvas with your mouse. The program assigns a parameter value `t` to each point automatically (according to the chosen μ) and fits a polynomial curve `x(t), y(t)` through all of them.
+Select `n` arbitrary points `(x, y)` on the canvas with your mouse. 
+The program assigns a parameter value `t` to each point automatically (according to the chosen μ)
+and fits a polynomial curve `x(t), y(t)` through all of them.
 
-### Interaction modes
 
-| Mode   | Action |
-|--------|--------|
-| **Add**    | Click anywhere on the canvas to insert a new point. Click near the curve's midpoint handle to insert *between* two existing points. |
-| **Move**   | Click and drag any existing control point. |
-| **Delete** | Click an existing control point to remove it. |
-
-Switch modes using the radio buttons in the sidebar.
-
----
-
-## Features
+### Features
 
 - **Multiple curves** — create and manage several independent curves simultaneously, each with its own colour.
 
@@ -111,8 +101,8 @@ Switch modes using the radio buttons in the sidebar.
 
 The parameter `t` is not the pixel coordinate — it is an abstract value assigned to each point that controls how the polynomial is paced. The formula for assigning `t` automatically is:
 
-![parametrization formula](assets/parametrization.png)
-
+$$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
+$$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
 $$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
 
 The exponent μ controls the relationship between chord length and parameter spacing:

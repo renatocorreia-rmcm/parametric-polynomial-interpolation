@@ -90,6 +90,7 @@ class Curve:
         self.show_labels: bool = True
         self._coeff_cache: np.ndarray | None = None
         self._cache_key: tuple | None = None
+        self._cmap_cache: tuple | None = None  # (colormap_name, cmap_object)
 
     # ── derived ──────────────────────────────────────────────────────────────
     def get_array(self) -> npt.NDArray:  # curve points
@@ -105,9 +106,9 @@ class Curve:
         for i, row in enumerate(reparametrized):
             self.points[i][0] = float(row[0])
 
-    def _make_cache_key(self) -> tuple:
+    def _make_cache_key(self) -> bytes:
         """A hashable key that changes iff the control points change."""
-        return tuple(tuple(p) for p in self.points)
+        return np.array(self.points, dtype=float).tobytes()
 
     def interpolate(self, draft=False):
         """
@@ -935,7 +936,9 @@ class InteractiveVisualizer:
             color=FG_DIM, fontsize=8, pad=4,
         )
 
-        resampled_cache: dict[int, npt.NDArray | None] = {}
+        # bbox accumulators — filled inside the draw loop to avoid a second pass
+        bbox_x: list[npt.NDArray] = []
+        bbox_y: list[npt.NDArray] = []
 
         for ci, c in enumerate(self.curves):
             if not c.visible or not c.points:
@@ -950,7 +953,6 @@ class InteractiveVisualizer:
 
             # ── interpolated curve ────────────────────────────────────────────
             resampled, ok = c.interpolate(draft=self._drag_pt_idx >= 0 or draft)
-            resampled_cache[ci] = resampled if ok else None
             if ok and resampled is not None and len(resampled) > 1:
                 self._draw_curve_colored(ax, resampled, c, alpha=1.0)
 
@@ -991,23 +993,19 @@ class InteractiveVisualizer:
             ax.plot(*pts_x[-1:], *pts_y[-1:], "x",
                     ms=9, color=col, mew=2, zorder=6)
 
+            # ── accumulate bbox data (reuse arr already in hand) ──────────────
+            bbox_x.append(pts_x)
+            bbox_y.append(pts_y)
+            if resampled is not None:
+                bbox_x.append(resampled[:, 1])
+                bbox_y.append(resampled[:, 2])
 
-        # always-square view: recompute from all visible points.
-        # During a drag, only ever expand the view (never shrink).
-        # Reuse the resampled data already computed during the draw loop above.
-        all_x, all_y = [], []
-        for ci, c in enumerate(self.curves):
-            if c.visible and c.points:
-                arr = c.get_array()
-                all_x.extend(arr[:, 1])
-                all_y.extend(arr[:, 2])
-                resampled_bbox = resampled_cache.get(ci)
-                if resampled_bbox is not None:
-                    all_x.extend(resampled_bbox[:, 1])
-                    all_y.extend(resampled_bbox[:, 2])
-        if all_x:
-            xlo, xhi = min(all_x), max(all_x)
-            ylo, yhi = min(all_y), max(all_y)
+        # always-square view
+        if bbox_x:
+            all_x = np.concatenate(bbox_x)
+            all_y = np.concatenate(bbox_y)
+            xlo, xhi = all_x.min(), all_x.max()
+            ylo, yhi = all_y.min(), all_y.max()
             xmid = (xlo + xhi) / 2
             ymid = (ylo + yhi) / 2
             half = max((xhi - xlo) / 2, (yhi - ylo) / 2, 1.0) * 1.12
@@ -1030,7 +1028,10 @@ class InteractiveVisualizer:
 
     def _draw_curve_colored(self, ax, resampled: npt.NDArray, c: Curve, alpha=1.0):
         """Draw interpolated curve as a single LineCollection — one draw call."""
-        cmap = plt.get_cmap(c.colormap)
+        # cache cmap object — colormaps are immutable, no need to re-fetch every frame
+        if c._cmap_cache is None or c._cmap_cache[0] != c.colormap:
+            c._cmap_cache = (c.colormap, plt.get_cmap(c.colormap))
+        cmap = c._cmap_cache[1]
 
         p0 = resampled[:-1]
         p1 = resampled[1:]
@@ -1046,7 +1047,9 @@ class InteractiveVisualizer:
         norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
         # shape: (N, 2, 2) — N segments, each with 2 points of (x, y)
-        segments = np.stack([p0[:, 1:3], p1[:, 1:3]], axis=1)
+        # build as a view: xy is (M, 2), sliding window of pairs along axis 0
+        xy = resampled[:, 1:3]  # view, no copy
+        segments = np.lib.stride_tricks.sliding_window_view(xy, (2, 2)).reshape(-1, 2, 2)
         lc = LineCollection(segments, cmap=cmap, norm=norm,
                             linewidth=2.0, alpha=alpha, zorder=3,
                             capstyle="round")

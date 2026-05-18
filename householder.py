@@ -8,12 +8,12 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
     returns Q, R such that A = Q @ R where Q is orthogonal and R is upper triangular
     """
     assert len(A.shape) == 2  # 2D matrix
-    assert A.shape[0] >= A.shape[1]  # more rows than columns = more equations than variables
+    assert A.shape[0] == A.shape[1]  # square matrix
 
-    Q = np.identity(len(A))
+    Q = np.identity(A.shape[0])
     R = A.copy()
 
-    for i in range(A.shape[1]):  # only up to number of columns
+    for i in range(A.shape[1] - 1):  # only up to number of columns
         a_i = R[i:, i]
 
         norm_a_i = np.linalg.norm(a_i)
@@ -23,7 +23,12 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
         sign_a_i = np.sign(a_i[0]) if a_i[0] != 0 else 1.0
         v_i = a_i + sign_a_i * norm_a_i * e_i
 
-        u_i = v_i / np.linalg.norm(v_i)
+        norm_v_i = np.linalg.norm(v_i)
+
+        if norm_v_i < 1e-15:
+            continue
+
+        u_i = v_i / norm_v_i
 
         R[i:, i:] -= 2 * np.outer(u_i, u_i @ R[i:, i:])
         Q[:, i:] -= 2 * np.outer(Q[:, i:] @ u_i, u_i)
@@ -42,7 +47,12 @@ def solve_xy(A, x, y):
 
     Q, R = decomposition(A)
 
-    coefficients_x = solve_triangular(R, Q.T @ x)
-    coefficients_y = solve_triangular(R, Q.T @ y)
+    Qt = Q.T
+
+    B = np.column_stack((x, y))
+    coefficients = solve_triangular(R, Qt @ B)
+
+    coefficients_x = coefficients[:, 0]
+    coefficients_y = coefficients[:, 1]
 
     return coefficients_x, coefficients_y

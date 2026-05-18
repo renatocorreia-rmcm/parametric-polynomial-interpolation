@@ -23,7 +23,7 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# todo: refactorize sliders: all sliders values must be updated dinamically, on drag time, while on drag, curve must have the draft resolution
+# todo: fix sampling rate is not actually draft while sliding the sliders
 # todo: remove apply-parametrization button. do it dynamically as all other sliders
 # todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
 

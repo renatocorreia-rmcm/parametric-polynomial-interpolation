@@ -30,16 +30,6 @@ def decomposition(A: npt.NDArray[float]) -> (npt.NDArray[float], npt.NDArray[flo
 
     return Q, R
 
-def solve(QR, b):
-    """
-    QRx=b
-    Rx=(Q^t)b  backsubstitute here
-    """
-
-    Q, R = QR
-
-    return solve_triangular(R, Q.T @ b)
-
 
 def solve_xy(A, x, y):
     """
@@ -50,8 +40,9 @@ def solve_xy(A, x, y):
     Rx=(Q^t)b  backsubstitute here
     """
 
-    QR = decomposition(A)
-    coefficients_x = solve(QR=QR, b=x)
-    coefficients_y = solve(QR=QR, b=y)
+    Q, R = decomposition(A)
+
+    coefficients_x = solve_triangular(R, Q.T @ x)
+    coefficients_y = solve_triangular(R, Q.T @ y)
 
     return coefficients_x, coefficients_y

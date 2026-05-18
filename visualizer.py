@@ -23,9 +23,8 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# todo: fix sampling rate is not actually draft while sliding the sliders
-# todo: remove apply-parametrization button. do it dynamically as all other sliders
-# todo: generalize color_modes to position, speed, acceleration, etc  # generalize variation operator already used to get speed (delta(any)/delta(t))
+# done: fix sampling rate is not actually draft while sliding the sliders
+# done: remove apply-parametrization button. do it dynamically as all other sliders
 
 import numpy as np
 import numpy.typing as npt
@@ -160,7 +159,6 @@ class InteractiveVisualizer:
         self.interaction_mode: str = "add"  # "add" | "move" | "delete"
         self._drag_pt_idx: int = -1
         self._drag_curve_idx: int = -1
-        self._is_sliding: bool = False
         self._drag_xlim: tuple = (-2, 2)
         self._drag_ylim: tuple = (-2, 2)
 
@@ -359,15 +357,6 @@ class InteractiveVisualizer:
         self.tb_exp.text_disp.set_color(FG_TEXT)
         self.tb_exp.text_disp.set_fontsize(8)
         self.tb_exp.on_submit(self._on_exp_text)
-
-        # Re-parametrize button
-        ax_reparam = self.fig.add_subplot(sb[row])
-        row += 1
-        self.btn_reparam = Button(ax_reparam, "Apply Parametrization",
-                                  color=BG_WIDGET, hovercolor=BG_PANEL)
-        self.btn_reparam.label.set_fontsize(8)
-        self.btn_reparam.label.set_color(ACCENT)
-        self.btn_reparam.on_clicked(lambda e: self._apply_parametrization())
 
         # Color mode radio
         ax_cm_lbl = self.fig.add_subplot(sb[row])
@@ -691,15 +680,13 @@ class InteractiveVisualizer:
         self.interaction_mode = label
 
     def _on_exp_slider(self, val):
-        self._is_sliding = True
-        try:
-            c = self._active_curve()
-            if c:
-                c.param_exponent = round(float(val), 4)
-                self.tb_exp.set_val(f"{c.param_exponent:.2f}")
-            self._redraw()
-        finally:
-            self._is_sliding = False
+        c = self._active_curve()
+        if c:
+            c.param_exponent = round(float(val), 4)
+            self.tb_exp.set_val(f"{c.param_exponent:.2f}")
+            c.apply_parametrization()
+            self._sync_point_editor()
+        self._redraw()
 
     def _on_exp_text(self, text):
         try:
@@ -709,14 +696,10 @@ class InteractiveVisualizer:
         c = self._active_curve()
         if c:
             c.param_exponent = val
-        self.slider_exp.set_val(np.clip(val, 0.0, 2.0))
-
-    def _apply_parametrization(self):
-        c = self._active_curve()
-        if c:
             c.apply_parametrization()
             self._sync_point_editor()
-            self._redraw()
+        self.slider_exp.set_val(np.clip(val, 0.0, 2.0))
+        self._redraw()
 
     def _on_colormode_changed(self, label):
         c = self._active_curve()
@@ -725,15 +708,11 @@ class InteractiveVisualizer:
             self._redraw()
 
     def _on_samples_slider(self, val):
-        self._is_sliding = True
-        try:
-            c = self._active_curve()
-            if c:
-                c.samples = int(val)
-            self.tb_samples.set_val(str(int(val)))
-            self._redraw()
-        finally:
-            self._is_sliding = False
+        c = self._active_curve()
+        if c:
+            c.samples = int(val)
+        self.tb_samples.set_val(str(int(val)))
+        self._redraw()
 
     def _on_samples_text(self, text):
         try:
@@ -748,15 +727,11 @@ class InteractiveVisualizer:
             pass
 
     def _on_ext_slider(self, val):
-        self._is_sliding = True
-        try:
-            c = self._active_curve()
-            if c:
-                c.extrapolation = round(float(val), 4)
-                self.tb_ext.set_val(f"{c.extrapolation:.2f}")
-            self._redraw()
-        finally:
-            self._is_sliding = False
+        c = self._active_curve()
+        if c:
+            c.extrapolation = round(float(val), 4)
+            self.tb_ext.set_val(f"{c.extrapolation:.2f}")
+        self._redraw()
 
     def _on_ext_text(self, text):
         try:
@@ -788,14 +763,10 @@ class InteractiveVisualizer:
         c = self._active_curve()
         if c is None or self._selected_pt < 0:
             return
-        self._is_sliding = True
-        try:
-            self._set_point_coord(axis, val)
-            tb = {"x": self.tb_px, "y": self.tb_py, "t": self.tb_pt}[axis]
-            tb.set_val(f"{val:.3f}")
-            self._redraw()
-        finally:
-            self._is_sliding = False
+        self._set_point_coord(axis, val)
+        tb = {"x": self.tb_px, "y": self.tb_py, "t": self.tb_pt}[axis]
+        tb.set_val(f"{val:.3f}")
+        self._redraw(draft=True)
 
     def _on_coord_text(self, axis: str, text: str):
         try:
@@ -953,7 +924,7 @@ class InteractiveVisualizer:
     # ══════════════════════════════════════════════════════════════════════════
     # Drawing
     # ══════════════════════════════════════════════════════════════════════════
-    def _redraw(self):
+    def _redraw(self, draft: bool = False):
         ax = self.ax_canvas
         ax.cla()
         ax.set_facecolor(BG_DARK)
@@ -978,7 +949,7 @@ class InteractiveVisualizer:
             is_active = (ci == self.active_idx)
 
             # ── interpolated curve ────────────────────────────────────────────
-            resampled, ok = c.interpolate(draft=self._drag_pt_idx >= 0 or self._is_sliding)
+            resampled, ok = c.interpolate(draft=self._drag_pt_idx >= 0 or draft)
             resampled_cache[ci] = resampled if ok else None
             if ok and resampled is not None and len(resampled) > 1:
                 self._draw_curve_colored(ax, resampled, c, alpha=1.0)

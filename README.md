@@ -1,7 +1,7 @@
 # Parametric Polynomial Interpolation
 
-An interactive tool for constructing and visualising 
-2-D **parametric polynomial curves**.
+An interactive tool for **constructing** and **visualising** 
+2-D parametric polynomial curves.
 
 https://github.com/user-attachments/assets/aea1e971-5c48-4380-b3f5-79fd79f94f4d
 
@@ -9,16 +9,16 @@ https://github.com/user-attachments/assets/aea1e971-5c48-4380-b3f5-79fd79f94f4d
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Features](#features)
-- [Parametrization Method (μ values)](#parametrization-method-μ-values)
-- [Architecture](#architecture)
-- [Project Structure](#project-structure)
-- [Known Limitations](#known-limitations)
-- [Future Ideas](#future-ideas)
-- [References](#references)
+1. [Installation](#installation)
+2. [Quick Start](#quick-start)
+3. [Usage](#usage)
+4. [Features](#features)
+5. [Parametrization Method (μ values)](#parametrization-method-μ-values)
+6. [Architecture](#architecture)
+7. [Project Structure](#project-structure)
+8. [Known Limitations](#known-limitations)
+9. [Future Ideas](#future-ideas)
+10. [References](#references)
 
 ---
 
@@ -103,23 +103,13 @@ $$d_i = \|P_{i+1} - P_i\|^{\mu}$$
 
 The exponent $\mu$ controls the relationship between chord length and parameter spacing:
 
-### Uniform — $\mu = 0$
 
-Every segment gets the same $\Delta t$ regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.
+|Uniform|Centripetal|Chordal|
+|---|---|---|
+|$\mu = 0$|$\mu = 0.5$|$\mu = 1$|
+|![uniform](assets/uniform_parametrization.svg)|![centripetal](assets/centripetal_parametrization.svg)|![chordal](assets/chordal_parametrization.svg)|
+|Every segment gets the same $\Delta t$ regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.|$\Delta t$ grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.|$\Delta t$ equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.|
 
-![uniform](assets/uniform_parametrization.svg)
-
-### Centripetal — $\mu = 0.5$ *(recommended default)*
-
-$\Delta t$ grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.
-
-![centripetal](assets/centripetal_parametrization.svg)
-
-### Chordal — $\mu = 1$
-
-$\Delta t$ equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.
-
-![chordal](assets/chordal_parametrization.svg)
 
 ---
 

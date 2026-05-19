@@ -3,8 +3,7 @@
 An interactive tool for **constructing** and **visualising** 
 2-D parametric polynomial curves.
 
-https://github.com/user-attachments/assets/aea1e971-5c48-4380-b3f5-79fd79f94f4d
-
+![demo](assets/demo.gif)
 ---
 
 ## Table of Contents
@@ -107,8 +106,10 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 |Uniform|Centripetal|Chordal|
 |---|---|---|
 |$\mu = 0$|$\mu = 0.5$|$\mu = 1$|
-|![uniform](assets/uniform_parametrization.svg)|![centripetal](assets/centripetal_parametrization.svg)|![chordal](assets/chordal_parametrization.svg)|
 |Every segment gets the same $\Delta t$ regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.|$\Delta t$ grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.|$\Delta t$ equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.|
+
+![mu gif](assets/mu_parametrization.gif)
+
 
 
 ---

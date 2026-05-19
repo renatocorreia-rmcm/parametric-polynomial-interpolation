@@ -23,8 +23,7 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# done: fix sampling rate is not actually draft while sliding the sliders
-# done: remove apply-parametrization button. do it dynamically as all other sliders
+# todo: add x(t) and y(t) coefficients tracker
 
 import numpy as np
 import numpy.typing as npt

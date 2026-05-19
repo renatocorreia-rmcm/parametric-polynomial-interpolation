@@ -1,7 +1,9 @@
+
+
+
 # Parametric Polynomial Interpolation
 
-![demo](assets/Parametric_Polynomial_Interpolator.png)
-![demo](insert demo gif here)
+https://github.com/user-attachments/assets/cbf1cde6-12d2-4252-8e22-3363d6091ad2
 
 An interactive tool for constructing and visualising 2-D parametric polynomial curves.
 Click points onto a canvas, choose a parametrization strategy, and watch the interpolated curve update in real time.

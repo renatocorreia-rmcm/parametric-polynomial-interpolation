@@ -1,11 +1,9 @@
 # Parametric Polynomial Interpolation
 
+An interactive tool for constructing and visualising 
+2-D **parametric polynomial curves**.
+
 https://github.com/user-attachments/assets/aea1e971-5c48-4380-b3f5-79fd79f94f4d
-
-
-
-An interactive tool for constructing and visualising 2-D parametric polynomial curves.
-Click points onto a canvas, choose a parametrization strategy, and watch the interpolated curve update in real time.
 
 ---
 
@@ -50,7 +48,6 @@ import numpy as np
 
 vis = InteractiveVisualizer()
 
-
 pts = np.array([[0, 0], [1, 2], [3, 1], [4, 3]], dtype=float)  # Optionally pre-load points as (N, 2) array [x, y]  # or (N, 3) array [t, x, y] if you want manual parameter values
 vis.load_points(pts)
 
@@ -63,70 +60,66 @@ Or simply run `python visualizer.py`.
 
 ## Usage
 
-Select `n` arbitrary points `(x, y)` on the canvas with your mouse. 
-The program assigns a parameter value `t` to each point automatically (according to the chosen μ)
-and fits a polynomial curve `x(t), y(t)` through all of them.
+Select $n$ arbitrary points $(x, y)$ on the canvas with your mouse. 
+The program assigns a parameter value $t$ to each point automatically (according to the chosen $μ$)
+and fits a polynomial curve $\ r(t) = (X(t), Y(t))$ through all of them.
 
 
 ### Features
 
-- **Multiple curves** — create and manage several independent curves simultaneously, each with its own colour.
+- **Multiple curves** — create and manage several independent curves simultaneously.
 
-  ![curves section](insert final screenshot here)
+- **Point editing** — add, move, and delete control points interactively. Edit $x$, $y$, and $t$ via sliders or typed text boxes.
 
-- **Point editing** — add, move, and delete control points interactively; edit `x`, `y`, and `t` via sliders or typed text boxes.
+- **Automatic parametrization** — choose the interpolation blending factor $\mu$. Then $t$ values are recomputed on the fly.
 
-  ![interaction mode section](insert final screenshot here)
-  ![selected point section](insert final screenshot here)
+- **Manual $t$ override** — drag the $t$ slider (or type) for any selected point to assign an exact parameter value.
 
-- **Automatic parametrization** — choose μ ∈ {0, 0.5, 1} or type any value; `t` values are recomputed on the fly.
+- **Colour modes** — colour the curve by parameter value $t$ or by speed $\| \frac{dr}{dt} \|$.
 
-  ![mu section](insert final screenshot here)
-
-- **Manual `t` override** — drag the `t` slider for any selected point to assign an exact parameter value.
-
-- **Colour modes** — colour the curve by parameter value `t` or by speed `‖dr/dt‖`.
-
-  ![colour mode section](insert final screenshot here)
-
-- **Adjustable sample density** — slide to increase or decrease the number of plotted curve points per segment.
-
-  ![Samples per segment section](insert final screenshot here)
+- **Adjustable sample density** — slide to increase or decrease the number of plotted curve points per segment. This affects the curve resolution.
 
 - **Extrapolation** — extend the polynomial beyond the first and last control points.
+
 - **Export** — save a clean SVG of all visible curves to `output/curves_NNN.svg`.
 
 ---
 
-## Parametrization Method (μ values)
+## Parametrization Method ($\mu$ values)
 
-The parameter `t` is not the pixel coordinate — it is an abstract value assigned to each point that controls how the polynomial is paced. The formula for assigning `t` automatically is:
+The parameter $t$ is not a spacial coordinate — it is an abstract value assigned to each point that controls how the polynomial is paced. 
 
-$$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
-$$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
-$$t_{i+1} = t_i + \|P_{i+1} - P_i\|^{\mu}$$
+Although the resulting curve is clearly not a polynomial, each axis of it is indeed a polynomial:
+$$r(t) = (X(t), Y(t))$$
 
-The exponent μ controls the relationship between chord length and parameter spacing:
 
-### Uniform — μ = 0
+The formula for assigning $t$ automatically given a set of points $(x, y)_i$ is:
 
-Every segment gets the same Δt regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.
+$$t_0 = 0$$
 
-![uniform](output/uniform.svg)
+$$t_{i+1} = t_i + d_i$$
 
-### Centripetal — μ = 0.5 *(recommended default)*
+$$d_i = \|P_{i+1} - P_i\|^{\mu}$$
 
-Δt grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.
+The exponent $\mu$ controls the relationship between chord length and parameter spacing:
 
-![centripetal](output/centripetal.svg)
+### Uniform — $\mu = 0$
 
-### Chordal — μ = 1
+Every segment gets the same $\Delta t$ regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.
 
-Δt equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.
+![uniform](assets/uniform_parametrization.svg)
 
-![chordal](output/chordal.svg)
+### Centripetal — $\mu = 0.5$ *(recommended default)*
 
-You can also type any μ value into the text box — the reparametrization is applied live.
+$\Delta t$ grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.
+
+![centripetal](assets/centripetal_parametrization.svg)
+
+### Chordal — $\mu = 1$
+
+$\Delta t$ equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.
+
+![chordal](assets/chordal_parametrization.svg)
 
 ---
 
@@ -139,7 +132,7 @@ User clicks (visualizer.py)
     │
     ▼
 Parametize (parametize.py)
-    Assigns t values to each (x, y) point using the chosen μ.
+    Assigns t values to each (x, y) point using the chosen $\mu$.
     Produces an (N, 3) array [t, x, y].
     │
     ▼

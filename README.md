@@ -4,6 +4,7 @@ An interactive tool for **constructing** and **visualising**
 2-D parametric polynomial curves.
 
 ![demo](assets/demo.gif)
+
 ---
 
 ## Table of Contents
@@ -100,7 +101,7 @@ $$t_{i+1} = t_i + d_i$$
 
 $$d_i = \|P_{i+1} - P_i\|^{\mu}$$
 
-The exponent $\mu$ controls the relationship between chord length and parameter spacing:
+The exponent $\mu$ controls the relationship between chord length and parameter spacing. These are some notable values.
 
 
 |Uniform|Centripetal|Chordal|

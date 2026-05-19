@@ -23,8 +23,6 @@ Usage
 Or run this file directly for a demo with one pre-loaded curve.
 """
 
-# todo: add x(t) and y(t) coefficients tracker
-
 import numpy as np
 import numpy.typing as npt
 import matplotlib as mpl
@@ -494,6 +492,44 @@ class InteractiveVisualizer:
             ax_del_pt,
         ]
 
+        # ── section: Polynomial display (free-floating, auto-height) ─────────
+        # Lives outside the GridSpec so it can grow to any height.
+        # Positioned in figure coords; _update_poly_display() resizes it.
+        # Placeholder rect — real position computed on first update.
+        ax_poly = self.fig.add_axes([0.78, 0.03, 0.205, 0.18],
+                                    facecolor=BG_PANEL)
+        ax_poly.axis("off")
+        self._ax_poly_txt = ax_poly
+
+        # Label drawn as a figure-level text, repositioned each update.
+        self._poly_section_label = self.fig.text(
+            0.0, 0.0, "ACTIVE CURVE POLYNOMIAL",
+            va="bottom", fontsize=7, color=FG_DIM,
+        )
+
+        POLY_FONT = 9
+        self._poly_text_x_hdr = ax_poly.text(
+            0.04, 1.0, "", va="top", ha="left",
+            fontsize=POLY_FONT, color=ACCENT, family="monospace",
+            transform=ax_poly.transAxes,
+        )
+        self._poly_text_x_body = ax_poly.text(
+            0.04, 1.0, "", va="top", ha="left",
+            fontsize=POLY_FONT, color=ACCENT, family="monospace",
+            transform=ax_poly.transAxes, alpha=0.85,
+        )
+        self._poly_text_y_hdr = ax_poly.text(
+            0.04, 1.0, "", va="top", ha="left",
+            fontsize=POLY_FONT, color="#3dc98f", family="monospace",
+            transform=ax_poly.transAxes,
+        )
+        self._poly_text_y_body = ax_poly.text(
+            0.04, 1.0, "", va="top", ha="left",
+            fontsize=POLY_FONT, color="#3dc98f", family="monospace",
+            transform=ax_poly.transAxes, alpha=0.85,
+        )
+        self._poly_font_size = POLY_FONT
+
         self._update_sidebar_curve_buttons()
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -635,6 +671,9 @@ class InteractiveVisualizer:
 
         # point editor
         self._sync_point_editor()
+
+        # polynomial display
+        self._update_poly_display()
 
     def _sync_point_editor(self):
         """Push selected-point coords into the x/y/t sliders and textboxes."""
@@ -922,6 +961,129 @@ class InteractiveVisualizer:
         return ref[0] + max(d, 1e-3)
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Polynomial display
+    # ══════════════════════════════════════════════════════════════════════════
+    @staticmethod
+    def _format_poly(coeffs: npt.NDArray, var: str) -> tuple[str, str]:
+        """
+        Return (header, body_flat) where header is e.g. "X(t) =" and
+        body_flat is the full unsplit terms string with 3 decimal places.
+        Zero-valued terms (relative threshold 1e-10) are suppressed.
+        """
+        import textwrap
+        superscripts = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
+        header = f"{var}(t) ="
+
+        if coeffs is None or len(coeffs) == 0:
+            return header, "—"
+
+        scale = np.max(np.abs(coeffs))
+        threshold = scale * 1e-10 if scale > 0 else 1e-10
+
+        terms = []
+        for degree, c in enumerate(coeffs):
+            if abs(c) < threshold:
+                continue
+            c_str = f"{round(c, 2)}"
+            if degree == 0:
+                atom = c_str
+            elif degree == 1:
+                atom = f"{c_str}·t"
+            else:
+                exp = str(degree).translate(superscripts)
+                atom = f"{c_str}·t{exp}"
+            if terms:
+                atom = atom if atom.startswith("-") else f"+{atom}"
+            terms.append(atom)
+
+        return header, (" ".join(terms) if terms else "0")
+
+    def _update_poly_display(self):
+        """
+        Recompute X(t)/Y(t), wrap body text to fit the sidebar width, then
+        resize the free-floating axes to exactly contain all lines.
+        """
+        import textwrap
+
+        c = self._active_curve()
+        if c is None or len(c.points) < MIN_POINTS_FIT:
+            x_hdr, x_body = "X(t) =", "—"
+            y_hdr, y_body = "Y(t) =", "—"
+        else:
+            # coefficient cache (shared with interpolation path)
+            arr = c.get_array()
+            key = c._make_cache_key()
+            if key != c._cache_key or c._coeff_cache is None:
+                c._coeff_cache = vandermond.coefficients(arr)
+                c._cache_key = key
+            coeffs = c._coeff_cache  # shape (2, n_coeffs)
+            x_hdr, x_body = self._format_poly(coeffs[0], "X")
+            y_hdr, y_body = self._format_poly(coeffs[1], "Y")
+
+        # ── wrap body lines to a fixed char width ─────────────────────────────
+        # The sidebar is ~20% of a 15-inch figure → ~270 px wide at 96 dpi.
+        # At fontsize 9, monospace char ≈ 6.5 px → ~41 chars fit per line.
+        CHARS_PER_LINE = 70
+        def wrap(text: str) -> str:
+            return textwrap.fill(text, width=CHARS_PER_LINE,
+                                 break_long_words=False, break_on_hyphens=False)
+
+        x_body_w = wrap(x_body)
+        y_body_w = wrap(y_body)
+
+        x_lines = 1 + x_body_w.count("\n") + 1   # header + body lines + gap
+        y_lines = 1 + y_body_w.count("\n") + 1
+        total_lines = x_lines + y_lines
+
+        # ── compute axes height in figure fraction ────────────────────────────
+        # One text line ≈ font_pt * 1.4 / (fig_height_inches * 72) in fig frac.
+        fig_h_in = self.fig.get_size_inches()[1]
+        line_frac = (self._poly_font_size * 1.55) / (fig_h_in * 72)
+        pad_frac  = line_frac * 0.8   # padding above/below
+        ax_h = total_lines * line_frac + 2 * pad_frac
+
+        # ── sidebar right column spans figure x ∈ [sidebar_left, 0.99] ───────
+        # outer GridSpec: left=0.01, right=0.99, width_ratios=[3, 1.4]
+        # sidebar left edge ≈ 0.01 + (0.99-0.01)*(3/(3+1.4)) ≈ 0.679
+        sb_left  = 0.01 + (0.99 - 0.01) * (3 / (3 + 1.4)) + 0.012  # +small wspace
+        sb_right = 0.99
+        ax_x = sb_left
+        ax_w = sb_right - sb_left
+        ax_y = 0.03  # pin to figure bottom margin
+
+        # reposition the axes
+        self._ax_poly_txt.set_position([ax_x, ax_y, ax_w, ax_h])
+
+        # reposition the section label just above the axes
+        label_y = ax_y + ax_h + 0.003
+        self._poly_section_label.set_position((ax_x + 0.005, label_y))
+
+        # ── lay out text artists in axes-fraction coords ──────────────────────
+        # work top-down; each line consumes line_frac / ax_h of axes height
+        ax_h_px   = ax_h * fig_h_in * 72          # axes height in points
+        line_rel  = (self._poly_font_size * 1.55) / ax_h_px   # fraction per line
+        pad_rel   = pad_frac / ax_h
+
+        y_cursor = 1.0 - pad_rel
+
+        self._poly_text_x_hdr.set_position((0.04, y_cursor))
+        self._poly_text_x_hdr.set_text(x_hdr)
+        y_cursor -= line_rel
+
+        self._poly_text_x_body.set_position((0.04, y_cursor))
+        self._poly_text_x_body.set_text(x_body_w)
+        y_cursor -= (1 + x_body_w.count("\n") + 0.6) * line_rel
+
+        self._poly_text_y_hdr.set_position((0.04, y_cursor))
+        self._poly_text_y_hdr.set_text(y_hdr)
+        y_cursor -= line_rel
+
+        self._poly_text_y_body.set_position((0.04, y_cursor))
+        self._poly_text_y_body.set_text(y_body_w)
+
+        self._ax_poly_txt.figure.canvas.draw_idle()
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Drawing
     # ══════════════════════════════════════════════════════════════════════════
     def _redraw(self, draft: bool = False):
@@ -1023,6 +1185,7 @@ class InteractiveVisualizer:
             ax.set_xlim(-2, 2)
             ax.set_ylim(-2, 2)
 
+        self._update_poly_display()
         self.fig.canvas.draw_idle()
 
     def _draw_curve_colored(self, ax, resampled: npt.NDArray, c: Curve, alpha=1.0):

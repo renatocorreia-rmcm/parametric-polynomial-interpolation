@@ -126,8 +126,11 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 3. Householder
     * Decomposes $T = Q \cdot R$ (orthogonal × upper-triangular).
         * Use implicit Householder reflections:
+
             $$Q*H_i = Q - 2 \cdot (Q \cdot u_i) \cdot u_i^T$$
+            
             $$H_i*R = R - 2 \cdot u_i \cdot (u_i^T \cdot R)$$
+
     * Solves both systems in one pass via back-substitution.
         $$R \cdot c_x = Q^T \cdot x$$
         $$R \cdot c_y = Q^T \cdot y$$

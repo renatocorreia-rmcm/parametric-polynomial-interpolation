@@ -5,7 +5,6 @@ An interactive tool for **constructing** and **visualising**
 
 ![demo](assets/demo.gif)
 
----
 
 ## Table of Contents
 
@@ -20,70 +19,50 @@ An interactive tool for **constructing** and **visualising**
 9. [Future Ideas](#future-ideas)
 10. [References](#references)
 
----
 
 ## Installation
-
-**Requirements:** Python 3.10+, a Qt backend for Matplotlib.
-
-```bash
-pip install -r requirements.txt
-```
-
-Clone and run:
 
 ```bash
 git clone https://github.com/renatocorreia-rmcm/parametric-polynomial-interpolation.git
 cd parametric-polynomial-interpolation
-python visualizer.py
+pip install -r requirements.txt  # Matplotlib, numpy, scipy
 ```
 
----
 
 ## Quick Start
-
+```bash
+python graphical_interface.py
+```
+or
 ```python
-from visualizer import InteractiveVisualizer
-
+from graphical_interface import InteractiveVisualizer
 vis = InteractiveVisualizer()
-
 vis.show()
 ```
-
-Or simply run `python visualizer.py`.
-
----
-
-## Usage
-
-Select arbitrary points $(x, y)$ on the canvas with your mouse. 
-The program assigns a parameter value $t$ to each point automatically (according to the chosen $μ$)
-and fits a polynomial curve $r(t) = (X(t), Y(t))$ through all of them.
 
 
 ### Features
 
-- **Multiple curves** — create and manage several independent curves simultaneously.
+- **Multiple curves** — create and manage independent curves simultaneously.
 
 - **Point editing** — add, move, and delete points interactively. Edit $x$, $y$, and $t$ via sliders or typed text boxes.
 
-- **Automatic parametrization** — choose the interpolation blending factor $\mu$. Then $t$ values are recomputed on the fly.
+- **Automatic parametrization** — choose the interpolation blending factor $\mu$.
 
 - **Manual $t$ override** — set an arbitrary $t$ value for any selected point.
 
 - **Colour modes** — colour the curve by parameter value ($t$) or by speed ($\Delta t$).
 
-- **Adjustable sample density** — slide to increase or decrease the number of plotted curve points. This affects the curve resolution (edges smoothness).
+- **Adjustable sample density** — Set the number of plotted curve points. This affects the curve resolution (edges smoothness).
 
 - **Extrapolation** — extend the polynomial beyond its endpoints.
 
 - **Export** — save a clean SVG of all visible curves to `output/curves_NNN.svg`.
 
----
 
-## Auto Parametrization Method ($\mu$ values)
+## Parameter $t$ and Auto Parametrization in function of $\mu$
 
-The parameter $t$ is not a spacial coordinate — it is an abstract value assigned to each point that controls how the polynomial is paced. 
+The parameter $t$ is an abstract value assigned to each point that controls how the polynomial is paced. 
 
 Although the resulting curve is clearly not a polynomial, each coordinate axis of it can be expressed as a polynomial function of $t$:
 
@@ -97,8 +76,9 @@ $$t_{i+1} = t_i + d_i$$
 
 $$d_i = \|P_{i+1} - P_i\|^{\mu}$$
 
-The exponent $\mu$ controls the relationship between chord length and parameter spacing. These are some notable values.
+The exponent $\mu$ controls the relationship between chord length and parameter spacing. 
 
+These are some notable values.
 
 |Uniform|Centripetal|Chordal|
 |---|---|---|
@@ -117,24 +97,33 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 1. Graphical Interface
     * Read user given points.
 
-2. Vandermonde
-    * Builds the Vandermonde matrix T of parameters, $T[i,j] = [t_i^j]$.
-    * Sets up two linear systems: $T·c_x = x$  and  $T·c_y = y$, 
-    where $c_x$ and $c_y$ are the polynomial coefficients 
-    for $X(t)$ and $Y(t)$ respectively.
+2. Linear System Setup
+    * Builds the Vandermonde matrix $T$ of parameters:
+        $$T_{i, j} = [t_i^j]$$
+    * Sets up two linear systems: 
 
-3. Householder
-    * Decomposes $T = Q \cdot R$ (orthogonal × upper-triangular).
-        * Use implicit Householder reflections:
+        $$T·\vec{c_x} = \vec{x}$$
+        $$T·\vec{c_y} = \vec{y}$$
+        
+        where $\vec{c_x}$ and $\vec{c_y}$ are the polynomial coefficients 
+        for $X(t)$ and $Y(t)$ respectively.
 
-            $$Q*H_i = Q - 2 \cdot (Q \cdot u_i) \cdot u_i^T$$
+3. Linear System Solving
+    * Decomposes $T = Q \cdot R$ (orthogonal × upper-triangular) using **Householder Reflections**.
+        * Bisector vector between $\vec{a_i}$ and $\vec{e_i}$
+            $$\vec{v_i} := \vec{a_i} + \text{sign}(\langle \vec{a_i}, \vec{e_i} \rangle) \cdot \|\vec{a_i}\| \cdot \vec{e_i} $$
+            $$\vec{u_i} := \frac{\vec{v_i}}{\|\vec{v_i}\|} \text{ is the bisector vector}$$
+
+        * Implicit reflections
+
+            $$Q H_i := Q - 2 \cdot (Q \cdot \vec{u_i}) \cdot \vec{u_i}^T$$
             
-            $$H_i*R = R - 2 \cdot u_i \cdot (u_i^T \cdot R)$$
+            $$H_i R := R - 2 \cdot \vec{u_i} \cdot (\vec{u_i}^T \cdot R)$$
 
     * Solves both systems in one pass via back-substitution.
-        $$R \cdot c_x = Q^T \cdot x$$
-        $$R \cdot c_y = Q^T \cdot y$$
-    * The found coefficients $c_x$ and $c_y$ are cached until control points change.
+        $$R \cdot \vec{c_x} = Q^T \cdot \vec{x}$$
+        $$R \cdot \vec{c_y} = Q^T \cdot \vec{y}$$
+
 
 4. Sampling
 
@@ -149,21 +138,22 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 
 ### Why Householder QR?
 
-Solving the Vandermonde system by Gaussian elimination is notoriously ill-conditioned for high-degree polynomials. Householder reflections orthogonalise the system without building the reflection matrices explicitly, using the identity `H·A = A − 2u(uᵀA)`, which is both more numerically stable and avoids O(n²) storage for each reflector. The QR factorisation is computed once and reused for both the `x` and `y` right-hand sides.
+Solving the Vandermonde system by Gaussian elimination is notoriously ill-conditioned for high-degree polynomials.
 
----
+Householder reflections orthogonalise the system without building the reflection matrices explicitly, $H = I − 2 \cdot \vec{u} \cdot \vec{u}^T$, which is more numerically stable and $O(n)$. 
+
 
 ## Project Structure
 
 ```
 .
-├── visualizer.py      # Interactive Matplotlib UI; entry point
-├── vandermond.py      # Vandermonde matrix construction and system setup
-├── householder.py     # QR decomposition and solver
+├── graphical_interface.py  # Interactive MPL UI; entry point
 ├── parametize.py      # Automatic t-value assignment
+├── vandermonde.py      # Vandermonde matrix construction
+├── householder.py     # QR decomposition and solver
 ├── sampling.py        # Dense polynomial evaluation for plotting
-├── assets/            # Static images used in this README
-└── output/            # Exported SVG files (created on first save)
+├── output/            # Exported SVG files (after first save)
+└── assets/            # Static images used in this README
 ```
 
 ---
@@ -173,16 +163,13 @@ Solving the Vandermonde system by Gaussian elimination is notoriously ill-condit
 - **Runge's phenomenon** — high-degree global polynomial interpolation (many points) can oscillate wildly near the boundary, especially with chordal parametrization or non-uniform point spacing. This is inherent to the method, not a bug.
 - **Duplicate `t` values** — if two control points are assigned the same parameter value, the Vandermonde matrix becomes singular and sampling is skipped. The UI silently drops the curve in this case.
 - **No spline fallback** — a single global polynomial is fit to all points. For large point sets (> ~15), consider switching to piecewise cubic splines instead.
-- **Qt backend required** — Matplotlib's interactive features need a Qt window; headless environments are not supported.
-
 ---
 
-## Future Ideas
+## Future Ideas: expand to 3-D
 
-- **3-D parametric curve** — add a `z(t)` dimension.
-- **Grid curves / surface lines** — side-by-side curves forming a mesh.
-- **Simple surface** — product of two curve families; bilinear interpolation between grid curves.
-- **Piecewise interpolation** — local cubic patches to avoid Runge's phenomenon for large point sets.
+1. **3-D parametric curve** — add a `z(t)` dimension.
+2. **Grid curves / surface lines** — side-by-side curves forming a mesh.
+3. **Simple surface** — product of two curve families; bilinear interpolation between grid curves.
 
 ---
 

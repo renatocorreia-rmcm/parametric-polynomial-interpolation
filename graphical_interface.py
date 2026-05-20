@@ -26,19 +26,14 @@ Or run this file directly for a demo with one pre-loaded curve.
 import numpy as np
 import numpy.typing as npt
 import matplotlib as mpl
-mpl.use("qtagg")  # ou PyQt6
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Button, Slider, TextBox, RadioButtons
-from matplotlib.lines import Line2D
 from matplotlib.collections import LineCollection
-from matplotlib.patches import FancyArrowPatch
-import warnings
 
 import sampling
 # ── project modules ───────────────────────────────────────────────────────────
 import vandermond
-import sampling as sp_mod
 from parametize import parametize
 
 # ── palette ───────────────────────────────────────────────────────────────────
@@ -510,22 +505,22 @@ class InteractiveVisualizer:
         POLY_FONT = 9
         self._poly_text_x_hdr = ax_poly.text(
             0.04, 1.0, "", va="top", ha="left",
-            fontsize=POLY_FONT, color=ACCENT, family="monospace",
+            fontsize=POLY_FONT, color=FG_TEXT, family="monospace",
             transform=ax_poly.transAxes,
         )
         self._poly_text_x_body = ax_poly.text(
             0.04, 1.0, "", va="top", ha="left",
-            fontsize=POLY_FONT, color=ACCENT, family="monospace",
+            fontsize=POLY_FONT, color=FG_TEXT, family="monospace",
             transform=ax_poly.transAxes, alpha=0.85,
         )
         self._poly_text_y_hdr = ax_poly.text(
             0.04, 1.0, "", va="top", ha="left",
-            fontsize=POLY_FONT, color="#3dc98f", family="monospace",
+            fontsize=POLY_FONT, color=FG_TEXT, family="monospace",
             transform=ax_poly.transAxes,
         )
         self._poly_text_y_body = ax_poly.text(
             0.04, 1.0, "", va="top", ha="left",
-            fontsize=POLY_FONT, color="#3dc98f", family="monospace",
+            fontsize=POLY_FONT, color=FG_TEXT, family="monospace",
             transform=ax_poly.transAxes, alpha=0.85,
         )
         self._poly_font_size = POLY_FONT
@@ -1023,7 +1018,7 @@ class InteractiveVisualizer:
         # ── wrap body lines to a fixed char width ─────────────────────────────
         # The sidebar is ~20% of a 15-inch figure → ~270 px wide at 96 dpi.
         # At fontsize 9, monospace char ≈ 6.5 px → ~41 chars fit per line.
-        CHARS_PER_LINE = 70
+        CHARS_PER_LINE = 60
         def wrap(text: str) -> str:
             return textwrap.fill(text, width=CHARS_PER_LINE,
                                  break_long_words=False, break_on_hyphens=False)

@@ -135,12 +135,22 @@ These are some notable values.
 
     Draws the curve as a LineCollection of segments $s_i = ((t_{i}, X(t_i), Y(t_i)),\ (t_{i+1}, X(t_{i+1}), Y(t_{i+1})))$ coloured by parameter value ($t_i$) or speed ($\Delta t_i$).
 
+### The ill-conditioning of Vandermonde matrices
+
+The Vandermonde matrix is built from columns $[t_i^0,\ t_i^1,\ t_i^2,\ \ldots,\ t_i^n]$ . As the degree grows, higher-power columns like t8t^8 t8 and t9t^9 t9 become nearly indistinguishable from each other numerically — they point in almost the same direction in Rn\mathbb{R}^n Rn. When columns are nearly linearly dependent, the matrix is nearly singular, and condition number is essentially a measure of how close to singular a matrix is.
+
+$\vec{v}_j = [t_1^j,\ t_2^j,\ \ldots,\ t_n^j]^T$
+
+https://www.desmos.com/calculator/og9dmmkuht
 
 ### Why Householder QR?
 
-Solving the Vandermonde system by Gaussian elimination is notoriously ill-conditioned for high-degree polynomials.
+It is most a **numerical stabillity** question:
 
-Householder reflections orthogonalise the system without building the reflection matrices explicitly, $H = I − 2 \cdot \vec{u} \cdot \vec{u}^T$, which is more numerically stable and $O(n)$. 
+Vandermonde matrices are notoriously ill-conditioned — their condition number grows exponentially with degree.
+
+Non orthogonal methods, as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems.
+
 
 
 ## Project Structure

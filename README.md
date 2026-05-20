@@ -44,12 +44,8 @@ python visualizer.py
 
 ```python
 from visualizer import InteractiveVisualizer
-import numpy as np
 
 vis = InteractiveVisualizer()
-
-pts = np.array([[0, 0], [1, 2], [3, 1], [4, 3]], dtype=float)  # Optionally pre-load points as (N, 2) array [x, y]  # or (N, 3) array [t, x, y] if you want manual parameter values
-vis.load_points(pts)
 
 vis.show()
 ```
@@ -60,40 +56,40 @@ Or simply run `python visualizer.py`.
 
 ## Usage
 
-Select $n$ arbitrary points $(x, y)$ on the canvas with your mouse. 
+Select arbitrary points $(x, y)$ on the canvas with your mouse. 
 The program assigns a parameter value $t$ to each point automatically (according to the chosen $μ$)
-and fits a polynomial curve $\ r(t) = (X(t), Y(t))$ through all of them.
+and fits a polynomial curve $r(t) = (X(t), Y(t))$ through all of them.
 
 
 ### Features
 
 - **Multiple curves** — create and manage several independent curves simultaneously.
 
-- **Point editing** — add, move, and delete control points interactively. Edit $x$, $y$, and $t$ via sliders or typed text boxes.
+- **Point editing** — add, move, and delete points interactively. Edit $x$, $y$, and $t$ via sliders or typed text boxes.
 
 - **Automatic parametrization** — choose the interpolation blending factor $\mu$. Then $t$ values are recomputed on the fly.
 
-- **Manual $t$ override** — drag the $t$ slider (or type) for any selected point to assign an exact parameter value.
+- **Manual $t$ override** — set an arbitrary $t$ value for any selected point.
 
-- **Colour modes** — colour the curve by parameter value $t$ or by speed $\| \frac{dr}{dt} \|$.
+- **Colour modes** — colour the curve by parameter value ($t$) or by speed ($\Delta t$).
 
-- **Adjustable sample density** — slide to increase or decrease the number of plotted curve points per segment. This affects the curve resolution.
+- **Adjustable sample density** — slide to increase or decrease the number of plotted curve points. This affects the curve resolution (edges smoothness).
 
-- **Extrapolation** — extend the polynomial beyond the first and last control points.
+- **Extrapolation** — extend the polynomial beyond its endpoints.
 
 - **Export** — save a clean SVG of all visible curves to `output/curves_NNN.svg`.
 
 ---
 
-## Parametrization Method ($\mu$ values)
+## Auto Parametrization Method ($\mu$ values)
 
 The parameter $t$ is not a spacial coordinate — it is an abstract value assigned to each point that controls how the polynomial is paced. 
 
-Although the resulting curve is clearly not a polynomial, each axis of it is indeed a polynomial:
+Although the resulting curve is clearly not a polynomial, each coordinate axis of it can be expressed as a polynomial function of $t$:
+
 $$r(t) = (X(t), Y(t))$$
 
-
-The formula for assigning $t$ automatically given a set of points $(x, y)_i$ is:
+The formula for assigning $t$ automatically given a set of points $p_i = (x_i, y_i)$ is:
 
 $$t_0 = 0$$
 
@@ -107,7 +103,8 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 |Uniform|Centripetal|Chordal|
 |---|---|---|
 |$\mu = 0$|$\mu = 0.5$|$\mu = 1$|
-|Every segment gets the same $\Delta t$ regardless of how long it is in space. Fast to compute and predictable, but can cause the curve to bunch or loop near clusters of closely-spaced points.|$\Delta t$ grows as the square root of the chord length. Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal. Generally the most robust choice for arbitrary input.|$\Delta t$ equals the chord length. The parameter is proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when control points are unevenly spaced.|
+|$\Delta t$ = 1. So $t_i = i$ for all $p_i$|$\Delta t$ grows as the square root of the chord length.|$\Delta t$ equals the chord length.|
+|Intuitive and predictable. Can cause the curve to bunch or loop near clusters of closely-spaced points.| Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal.|Proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when points are unevenly spaced.|
 
 ![mu gif](assets/mu_parametrization.gif)
 
@@ -115,38 +112,37 @@ The exponent $\mu$ controls the relationship between chord length and parameter 
 
 ---
 
-## Architecture
+## Program Flow
 
-The program is split into four modules with a clean data flow:
+1. Graphical Interface
+    * Read user given points.
 
-```
-User clicks (visualizer.py)
-    │
-    ▼
-Parametize (parametize.py)
-    Assigns t values to each (x, y) point using the chosen $\mu$.
-    Produces an (N, 3) array [t, x, y].
-    │
-    ▼
-Vandermonde (vandermond.py)
-    Builds the Vandermonde matrix T where T[i,j] = t_i^j.
-    Sets up two linear systems: T·cx = x  and  T·cy = y.
-    │
-    ▼
-Householder QR (householder.py)
-    Decomposes T = QR (orthogonal × upper-triangular).
-    Solves both systems in one pass via back-substitution.
-    Coefficients cx, cy are cached until control points change.
-    │
-    ▼
-Sampling (sampling.py)
-    Evaluates px(t) and py(t) at a dense linspace of t values.
-    Returns an (M, 3) array [t, px(t), py(t)] for plotting.
-    │
-    ▼
-Render (visualizer.py)
-    Draws the curve as a LineCollection coloured by t or speed.
-```
+2. Vandermonde
+    * Builds the Vandermonde matrix T of parameters, $T[i,j] = [t_i^j]$.
+    * Sets up two linear systems: $T·c_x = x$  and  $T·c_y = y$, 
+    where $c_x$ and $c_y$ are the polynomial coefficients 
+    for $X(t)$ and $Y(t)$ respectively.
+
+3. Householder
+    * Decomposes $T = Q \cdot R$ (orthogonal × upper-triangular).
+        * Use implicit Householder reflections:
+            $$Q*H_i = Q - 2 \cdot (Q \cdot u_i) \cdot u_i^T$$
+            $$H_i*R = R - 2 \cdot u_i \cdot (u_i^T \cdot R)$$
+    * Solves both systems in one pass via back-substitution.
+        $$R \cdot c_x = Q^T \cdot x$$
+        $$R \cdot c_y = Q^T \cdot y$$
+    * The found coefficients $c_x$ and $c_y$ are cached until control points change.
+
+4. Sampling
+
+    Evaluates $X(t), Y(t)$ at a denser linspace of $t$ values, given by user `sampling_rate` and `extrapolation_factor`.
+
+    Returns an `(M, 3)` array of points $[(t, X(t), Y(t))]$ ready for plotting.
+
+5. Graphical Interface
+
+    Draws the curve as a LineCollection of segments $s_i = ((t_{i}, X(t_i), Y(t_i)),\ (t_{i+1}, X(t_{i+1}), Y(t_{i+1})))$ coloured by parameter value ($t_i$) or speed ($\Delta t_i$).
+
 
 ### Why Householder QR?
 
@@ -161,7 +157,7 @@ Solving the Vandermonde system by Gaussian elimination is notoriously ill-condit
 ├── visualizer.py      # Interactive Matplotlib UI; entry point
 ├── vandermond.py      # Vandermonde matrix construction and system setup
 ├── householder.py     # QR decomposition and solver
-├── parametize.py      # Automatic t-value assignment (μ parametrization)
+├── parametize.py      # Automatic t-value assignment
 ├── sampling.py        # Dense polynomial evaluation for plotting
 ├── assets/            # Static images used in this README
 └── output/            # Exported SVG files (created on first save)

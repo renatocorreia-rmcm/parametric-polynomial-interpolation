@@ -137,17 +137,29 @@ These are some notable values.
 
 ### The ill-conditioning of Vandermonde matrices
 
-The Vandermonde matrix is built from columns $[t_i^0,\ t_i^1,\ t_i^2,\ \ldots,\ t_i^n]$ . As the degree grows, higher-power columns like t8t^8 t8 and t9t^9 t9 become nearly indistinguishable from each other numerically — they point in almost the same direction in Rn\mathbb{R}^n Rn. When columns are nearly linearly dependent, the matrix is nearly singular, and condition number is essentially a measure of how close to singular a matrix is.
+The Vandermonde matrix is built from columns $[t_i^0,\ t_i^1,\ t_i^2,\ \ldots,\ t_i^n]$. 
 
-$\vec{v}_j = [t_1^j,\ t_2^j,\ \ldots,\ t_n^j]^T$
+As the degree grows, higher-power columns like $t^8$ and $t^9$ become nearly indistinguishable from each other directionally.
 
-https://www.desmos.com/calculator/og9dmmkuht
+![vandermonde condition](assets/vandermonde.gif)
+*Interactive graph: [geogebra.org/calculator/wun6hjsc](https://www.geogebra.org/calculator/wun6hjsc)* <br>
+    
+Notice how directions of collumns $t_{i}^5$ and $t_{i}^6$ are almost the same. So will be to all further columns.
+$$\frac{v^{\circ 5}}{\|v^{\circ 5}\|} 
+\approx \frac{v^{\circ 6}}{\|v^{\circ 6}\|}
+\approx \frac{v^{\circ (...)}}{\|v^{\circ (...)}\|}$$
 
-### Why Householder QR?
+As collumns gets nearly linearly dependence, matrix gets nearly singularity.
 
-It is most a **numerical stabillity** question:
+A possible geometric interpretation is that, the higher the degree, the more "room" the polynomial has to oscillate between the points — and the solver has to find one exact solution among many near-solutions, which is inherently sensitive to perturbations.
 
-Vandermonde matrices are notoriously ill-conditioned — their condition number grows exponentially with degree.
+
+
+### Why Householder QR Decomposition?
+
+The choice is primarily one of **numerical stability**:
+
+As seen, Vandermonde matrices are notoriously ill-conditioned — their condition number grows exponentially with degree.
 
 Non orthogonal methods, as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems.
 

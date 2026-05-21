@@ -8,16 +8,17 @@ An interactive tool for **constructing** and **visualising**
 
 ## Table of Contents
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Usage](#usage)
-4. [Features](#features)
-5. [Parametrization Method (μ values)](#parametrization-method-μ-values)
-6. [Architecture](#architecture)
-7. [Project Structure](#project-structure)
-8. [Known Limitations](#known-limitations)
-9. [Future Ideas](#future-ideas)
-10. [References](#references)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Parameter $t$ and Auto Parametrization in function of $\mu$](#parameter-t-and-auto-parametrization-in-function-of-mu)
+- [Program Flow](#program-flow)
+- [The ill-conditioning of Vandermonde matrices](#the-ill-conditioning-of-vandermonde-matrices)
+- [Why Householder QR Decomposition?](#why-householder-qr-decomposition)
+- [Project Structure](#project-structure)
+- [Known Limitations](#known-limitations)
+- [Future Ideas: expand to 3-D](#future-ideas-expand-to-3-d)
+- [References](#references)
 
 
 ## Installation
@@ -40,8 +41,12 @@ vis = InteractiveVisualizer()
 vis.show()
 ```
 
+You should then see a **blank canvas at left**, and a **control panel at right**. Click on the canvas to add points as the curve interpolates in real time. Adjust fine parameters at the pannel, according to each section label.
 
-### Features
+![blank canvas](assets/blank_canvas.png)
+
+
+## Features
 
 - **Multiple curves** — create and manage independent curves simultaneously.
 
@@ -103,6 +108,7 @@ These are some notable values.
     * Sets up two linear systems: 
 
         $$T·\vec{c_x} = \vec{x}$$
+
         $$T·\vec{c_y} = \vec{y}$$
         
         where $\vec{c_x}$ and $\vec{c_y}$ are the polynomial coefficients 
@@ -122,7 +128,9 @@ These are some notable values.
 
     * Solves both systems in one pass via back-substitution.
         $$R \cdot \vec{c_x} = Q^T \cdot \vec{x}$$
+
         $$R \cdot \vec{c_y} = Q^T \cdot \vec{y}$$
+        
 
 
 4. Sampling
@@ -139,17 +147,17 @@ These are some notable values.
 
 The Vandermonde matrix is built from columns $[t_i^0,\ t_i^1,\ t_i^2,\ \ldots,\ t_i^n]$. 
 
-As the degree grows, higher-power columns like $t^8$ and $t^9$ become nearly indistinguishable from each other directionally.
+As the degree grows, higher-power columns like $t^8$ and $t^9$ become nearly the same direction.
 
 ![vandermonde condition](assets/vandermonde.gif)
 *Interactive graph: [geogebra.org/calculator/wun6hjsc](https://www.geogebra.org/calculator/wun6hjsc)* <br>
     
-Notice how directions of collumns $t_{i}^5$ and $t_{i}^6$ are almost the same. So will be to all further columns.
+Notice how directions of columns $t_{i}^5$ and $t_{i}^6$ are almost the same. So will be to all further columns.
 $$\frac{v^{\circ 5}}{\|v^{\circ 5}\|} 
 \approx \frac{v^{\circ 6}}{\|v^{\circ 6}\|}
 \approx \frac{v^{\circ (...)}}{\|v^{\circ (...)}\|}$$
 
-As collumns gets nearly linearly dependence, matrix gets nearly singularity.
+As columns gets nearly linearly dependence, matrix gets nearly singularity.
 
 A possible geometric interpretation is that, the higher the degree, the more "room" the polynomial has to oscillate between the points — and the solver has to find one exact solution among many near-solutions, which is inherently sensitive to perturbations.
 
@@ -161,7 +169,14 @@ The choice is primarily one of **numerical stability**:
 
 As seen, Vandermonde matrices are notoriously ill-conditioned — their condition number grows exponentially with degree.
 
-Non orthogonal methods, as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems.
+**Non orthogonal methods**, as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems. Small floating-point errors in the **forward pass pivoting** get catastrophically amplified during **back-substitution**.
+
+**Orthogonal tranformations** are preferred because they preserve the vectors norms, so they don't amplify errors.
+
+Although **Gram-Schmidt QR** is orthogonal, it also acumulate errors because it does the **projections** column by column, as $Q$ gradually loosens orthogonality.
+
+But **Householder QR** uses **reflections**, so rounding errors do not compound across steps. It has the same asymptotic cost, but far better numerical behaviour.
+
 
 
 
@@ -183,7 +198,7 @@ Non orthogonal methods, as **Gaussian Elimination** and **LU decomposition** amp
 ## Known Limitations
 
 - **Runge's phenomenon** — high-degree global polynomial interpolation (many points) can oscillate wildly near the boundary, especially with chordal parametrization or non-uniform point spacing. This is inherent to the method, not a bug.
-- **Duplicate `t` values** — if two control points are assigned the same parameter value, the Vandermonde matrix becomes singular and sampling is skipped. The UI silently drops the curve in this case.
+- **Duplicate `t` values** — if two control points are assigned the same parameter value, the Vandermonde matrix becomes singular and sampling is skipped.
 - **No spline fallback** — a single global polynomial is fit to all points. For large point sets (> ~15), consider switching to piecewise cubic splines instead.
 ---
 

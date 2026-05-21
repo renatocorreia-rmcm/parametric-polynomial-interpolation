@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing as npt
 
 
-def parametize(points: npt.NDArray, exponent: float = None) -> npt.NDArray:
+def parameterize(points: npt.NDArray, exponent: float = None) -> npt.NDArray:
 
     if exponent is None:
         assert points.shape[1] == 3  # must already have the parameters

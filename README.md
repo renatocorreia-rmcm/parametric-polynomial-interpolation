@@ -92,10 +92,8 @@ These are some notable values.
 |Intuitive and predictable. Can cause the curve to bunch or loop near clusters of closely-spaced points.| Strikes a good balance: it avoids looping artefacts that uniform parametrization can produce, without over-stretching like chordal.|Proportional to arc length, so the curve is paced like physical distance. Can produce unwanted oscillations (Runge-like) when points are unevenly spaced.|
 
 ![mu gif](assets/mu_parametrization.gif)
+*Same control points in different parametrizations*
 
-
-
----
 
 ## Program Flow
 
@@ -143,7 +141,7 @@ These are some notable values.
 
     Draws the curve as a LineCollection of segments $s_i = ((t_{i}, X(t_i), Y(t_i)),\ (t_{i+1}, X(t_{i+1}), Y(t_{i+1})))$ coloured by parameter value ($t_i$) or speed ($\Delta t_i$).
 
-### The ill-conditioning of Vandermonde matrices
+## The ill-conditioning of Vandermonde matrices
 
 The Vandermonde matrix is built from columns $[t_i^0,\ t_i^1,\ t_i^2,\ \ldots,\ t_i^n]$. 
 
@@ -157,23 +155,23 @@ $$\frac{v^{\circ 5}}{\|v^{\circ 5}\|}
 \approx \frac{v^{\circ 6}}{\|v^{\circ 6}\|}
 \approx \frac{v^{\circ (...)}}{\|v^{\circ (...)}\|}$$
 
-As columns gets nearly linearly dependence, matrix gets nearly singularity.
+As columns become nearly linearly dependent, matrix gets nearly singularity.
 
 A possible geometric interpretation is that, the higher the degree, the more "room" the polynomial has to oscillate between the points — and the solver has to find one exact solution among many near-solutions, which is inherently sensitive to perturbations.
 
 
 
-### Why Householder QR Decomposition?
+## Why Householder QR Decomposition?
 
 The choice is primarily one of **numerical stability**:
 
 As seen, Vandermonde matrices are notoriously ill-conditioned — their condition number grows exponentially with degree.
 
-**Non orthogonal methods**, as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems. Small floating-point errors in the **forward pass pivoting** get catastrophically amplified during **back-substitution**.
+**Non orthogonal methods**, such as **Gaussian Elimination** and **LU decomposition** amplify small floating-point errors, leading to wildly inaccurate results for even moderately sized problems. Small floating-point errors in the **forward pass pivoting** get catastrophically amplified during **back-substitution**.
 
-**Orthogonal tranformations** are preferred because they preserve the vectors norms, so they don't amplify errors.
+**Orthogonal transformations** are preferred because they preserve the vectors norms, so they don't amplify errors.
 
-Although **Gram-Schmidt QR** is orthogonal, it also acumulate errors because it does the **projections** column by column, as $Q$ gradually loosens orthogonality.
+Although **Gram-Schmidt QR** is orthogonal, it also accumulate errors because it does the **projections** column by column, as $Q$ gradually loosens orthogonality.
 
 But **Householder QR** uses **reflections**, so rounding errors do not compound across steps. It has the same asymptotic cost, but far better numerical behaviour.
 
@@ -185,7 +183,7 @@ But **Householder QR** uses **reflections**, so rounding errors do not compound 
 ```
 .
 ├── graphical_interface.py  # Interactive MPL UI; entry point
-├── parametize.py      # Automatic t-value assignment
+├── parameterize.py      # Automatic t-value assignment
 ├── vandermonde.py      # Vandermonde matrix construction
 ├── householder.py     # QR decomposition and solver
 ├── sampling.py        # Dense polynomial evaluation for plotting
@@ -193,22 +191,19 @@ But **Householder QR** uses **reflections**, so rounding errors do not compound 
 └── assets/            # Static images used in this README
 ```
 
----
-
 ## Known Limitations
 
 - **Runge's phenomenon** — high-degree global polynomial interpolation (many points) can oscillate wildly near the boundary, especially with chordal parametrization or non-uniform point spacing. This is inherent to the method, not a bug.
 - **Duplicate `t` values** — if two control points are assigned the same parameter value, the Vandermonde matrix becomes singular and sampling is skipped.
 - **No spline fallback** — a single global polynomial is fit to all points. For large point sets (> ~15), consider switching to piecewise cubic splines instead.
----
 
 ## Future Ideas: expand to 3-D
 
-1. **3-D parametric curve** — add a `z(t)` dimension.
+This architecture generalises naturally to higher dimensions.
+1. **3-D parametric curve** — add a $z(t)$ dimension.
 2. **Grid curves / surface lines** — side-by-side curves forming a mesh.
 3. **Simple surface** — product of two curve families; bilinear interpolation between grid curves.
 
----
 
 ## References
 

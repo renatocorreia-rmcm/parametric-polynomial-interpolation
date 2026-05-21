@@ -34,7 +34,7 @@ from matplotlib.collections import LineCollection
 import sampling
 # ── project modules ───────────────────────────────────────────────────────────
 import vandermond
-from parametize import parametize
+from parameterize import parameterize
 
 # ── palette ───────────────────────────────────────────────────────────────────
 CURVE_COLORS = [
@@ -94,7 +94,7 @@ class Curve:
         arr = self.get_array()
         if len(arr) < 2:
             return
-        reparametrized = parametize(arr[:, 1:], exponent=self.param_exponent)
+        reparametrized = parameterize(arr[:, 1:], exponent=self.param_exponent)
         for i, row in enumerate(reparametrized):
             self.points[i][0] = float(row[0])
 
@@ -1292,7 +1292,7 @@ class InteractiveVisualizer:
             c = self._active_curve()
         c.param_exponent = param_exponent
         if points.shape[1] == 2:
-            tmp = parametize(points, exponent=param_exponent)
+            tmp = parameterize(points, exponent=param_exponent)
         else:
             tmp = points.copy()
         c.points = [[row[0], row[1], row[2]] for row in tmp]

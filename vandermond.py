@@ -24,7 +24,7 @@ def coefficients(
     exponents = np.arange(amount_of_coefficients)
     T = t[:, None] ** exponents
 
-    # solve T*cx=x and T*cy=y
+    # solve T*[cx cy]=[x y]
     coefficients_x, coefficients_y = householder.solve_xy(A=T, x=x, y=y)
 
     return np.array([coefficients_x, coefficients_y])

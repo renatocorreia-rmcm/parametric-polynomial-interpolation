@@ -103,13 +103,18 @@ These are some notable values.
 2. Linear System Setup
     * Builds the Vandermonde matrix $T$ of parameters:
         $$T_{i, j} = [t_i^j]$$
-    * Sets up two linear systems: 
+        
+    * Builds 2 linear systems
 
         $$T·\vec{c_x} = \vec{x}$$
 
         $$T·\vec{c_y} = \vec{y}$$
+
+        Wich can be done in one go by
+
+        $$T·[\vec{c_x} \ \vec{c_y}] = [\vec{x} \ \vec{y}]$$
         
-        where $\vec{c_x}$ and $\vec{c_y}$ are the polynomial coefficients 
+        Where $\vec{c_x}$ and $\vec{c_y}$ are the polynomial coefficients 
         for $X(t)$ and $Y(t)$ respectively.
 
 3. Linear System Solving
@@ -124,18 +129,23 @@ These are some notable values.
             
             $$H_i R := R - 2 \cdot \vec{u_i} \cdot (\vec{u_i}^T \cdot R)$$
 
-    * Solves both systems in one pass via back-substitution.
+    * Solves both systems via back-substitution.
+        
         $$R \cdot \vec{c_x} = Q^T \cdot \vec{x}$$
 
         $$R \cdot \vec{c_y} = Q^T \cdot \vec{y}$$
+
+        Wich can be done in one go by
+
+        $$R \cdot [\vec{c_x} \ \vec{c_y}] = Q^T \cdot [\vec{x} \ \vec{y}]$$
         
 
 
 4. Sampling
 
-    Evaluates $X(t), Y(t)$ at a denser linspace of $t$ values, given by user `sampling_rate` and `extrapolation_factor`.
+    Evaluates $X(t), Y(t)$ at a denser linspace of $t$ values, beyond the control points, given by user `sampling_rate` and `extrapolation_factor`.
 
-    Returns an `(M, 3)` array of points $[(t, X(t), Y(t))]$ ready for plotting.
+    Returns an `(M, 3)` array of points $[(t, X(t), Y(t))]$ **ready for plotting**.
 
 5. Graphical Interface
 
